@@ -11,8 +11,8 @@
 development_status:
   # Epic 1: Project Foundation & Configuration
   epic-1: in-progress
-  1-1-initialize-python-project-with-uv: ready-for-dev
-  1-2-create-configuration-schema-and-validation: backlog
+  1-1-initialize-python-project-with-uv: review
+  1-2-create-configuration-schema-and-validation: ready-for-dev
   1-3-environment-variable-management-for-secrets: backlog
   1-4-file-path-verification-and-mcp-connection-testing: backlog
   epic-1-retrospective: backlog
@@ -75,8 +75,8 @@ project_info:
 
 # Sprint Metrics (auto-calculated on sprint-planning re-run)
 sprint_metrics:
-  stories_ready: 1
-  stories_in_progress: 0
+  stories_ready: 2
+  stories_in_progress: 1
   stories_done: 0
   current_epic: epic-1
-  completion_percentage: 0.0
+  completion_percentage: 3.2

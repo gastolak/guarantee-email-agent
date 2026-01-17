@@ -1,0 +1,27 @@
+[project]
+name = "guarantee-email-agent"
+version = "0.1.0"
+description = "Instruction-driven AI agent for warranty email automation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.8.0",
+    "httpx>=0.25.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
+    "tenacity>=8.2.0",
+    "typer[all]>=0.9.0",
+]
+
+[project.scripts]
+agent = "guarantee_email_agent.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
