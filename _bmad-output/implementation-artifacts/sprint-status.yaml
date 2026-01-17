@@ -1,0 +1,82 @@
+# Sprint Status Tracking for guarantee-email-agent
+# Auto-generated from epic files - DO NOT manually edit story keys
+# Last Updated: 2026-01-17
+
+# STATUS DEFINITIONS:
+# - backlog: Story not yet prepared for development
+# - ready-for-dev: Story prepared with complete context, ready for dev-story workflow
+# - in-progress: Story currently being implemented
+# - done: Story completed and validated
+
+development_status:
+  # Epic 1: Project Foundation & Configuration
+  epic-1: in-progress
+  1-1-initialize-python-project-with-uv: ready-for-dev
+  1-2-create-configuration-schema-and-validation: backlog
+  1-3-environment-variable-management-for-secrets: backlog
+  1-4-file-path-verification-and-mcp-connection-testing: backlog
+  epic-1-retrospective: backlog
+
+  # Epic 2: MCP Integration Layer
+  epic-2: backlog
+  2-1-gmail-mcp-client-with-retry-logic: backlog
+  2-2-warranty-api-custom-mcp-server-and-client: backlog
+  2-3-ticketing-system-custom-mcp-server-and-client: backlog
+  2-4-circuit-breaker-pattern-for-mcp-failures: backlog
+  epic-2-retrospective: backlog
+
+  # Epic 3: Instruction-Driven Workflow Engine
+  epic-3: backlog
+  3-1-instruction-file-parser-yaml-frontmatter-xml-body: backlog
+  3-2-main-instruction-orchestration-logic: backlog
+  3-3-dynamic-scenario-instruction-loading-and-routing: backlog
+  3-4-llm-response-generation-following-instructions: backlog
+  epic-3-retrospective: backlog
+
+  # Epic 4: Email Processing Workflow
+  epic-4: backlog
+  4-1-email-content-parser-and-metadata-extraction: backlog
+  4-2-serial-number-extraction-from-email-body: backlog
+  4-3-warranty-scenario-detection-and-classification: backlog
+  4-4-complete-email-to-response-processing-pipeline: backlog
+  4-5-cli-command-agent-run-for-continuous-processing: backlog
+  4-6-graceful-shutdown-without-losing-in-flight-emails: backlog
+  4-7-structured-logging-with-contextual-information: backlog
+  4-8-graceful-degradation-for-out-of-scope-cases: backlog
+  epic-4-retrospective: backlog
+
+  # Epic 5: Evaluation Framework
+  epic-5: backlog
+  5-1-yaml-eval-test-case-format-and-loading: backlog
+  5-2-end-to-end-eval-scenario-execution: backlog
+  5-3-cli-command-agent-eval-with-pass-rate-calculation: backlog
+  5-4-failed-scenario-reporting-and-debugging: backlog
+  5-5-continuous-improvement-loop-add-failed-cases-to-suite: backlog
+  5-6-instruction-refinement-validation-regression-prevention: backlog
+  epic-5-retrospective: backlog
+
+  # Epic 6: Production Hardening & Operational Excellence
+  epic-6: backlog
+  6-1-agenterror-exception-hierarchy-with-error-codes: backlog
+  6-2-exit-code-standards-for-automation: backlog
+  6-3-unix-signal-handling-sigterm-sigint-sighup: backlog
+  6-4-idempotent-startup-and-state-management: backlog
+  6-5-error-handling-with-detailed-context-logging: backlog
+  6-6-stdout-stderr-output-for-pipeline-compatibility: backlog
+  6-7-deployment-automation-and-daemon-mode-support: backlog
+  epic-6-retrospective: backlog
+
+# Project Summary
+project_info:
+  total_epics: 6
+  total_stories: 31
+  project_name: guarantee-email-agent
+  start_date: 2026-01-17
+
+# Sprint Metrics (auto-calculated on sprint-planning re-run)
+sprint_metrics:
+  stories_ready: 1
+  stories_in_progress: 0
+  stories_done: 0
+  current_epic: epic-1
+  completion_percentage: 0.0
