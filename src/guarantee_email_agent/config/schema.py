@@ -41,6 +41,18 @@ class LoggingConfig:
     file: str = "./logs/agent.log"
 
 
+@dataclass(frozen=True)
+class SecretsConfig:
+    """API keys and credentials loaded from environment variables.
+
+    Immutable (frozen=True) to prevent accidental modification or leakage.
+    """
+    anthropic_api_key: str
+    gmail_api_key: str
+    warranty_api_key: str
+    ticketing_api_key: str
+
+
 @dataclass
 class AgentConfig:
     """Top-level agent configuration."""
@@ -48,3 +60,4 @@ class AgentConfig:
     instructions: InstructionsConfig
     eval: EvalConfig
     logging: LoggingConfig
+    secrets: SecretsConfig

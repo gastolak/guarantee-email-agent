@@ -7,7 +7,8 @@ from guarantee_email_agent.config.schema import (
     MCPConnectionConfig,
     InstructionsConfig,
     EvalConfig,
-    LoggingConfig
+    LoggingConfig,
+    SecretsConfig
 )
 from guarantee_email_agent.config.validator import validate_config
 from guarantee_email_agent.utils.errors import ConfigurationError
@@ -33,6 +34,12 @@ def create_valid_config():
             level="INFO",
             output="stdout",
             file="./logs/agent.log"
+        ),
+        secrets=SecretsConfig(
+            anthropic_api_key="test-anthropic-key",
+            gmail_api_key="test-gmail-key",
+            warranty_api_key="test-warranty-key",
+            ticketing_api_key="test-ticketing-key"
         )
     )
 

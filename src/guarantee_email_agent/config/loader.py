@@ -1,7 +1,9 @@
 """Configuration loader for YAML configuration files."""
 
+import os
 from pathlib import Path
 import yaml
+from dotenv import load_dotenv
 
 from guarantee_email_agent.config.schema import (
     AgentConfig,
@@ -9,23 +11,64 @@ from guarantee_email_agent.config.schema import (
     MCPConnectionConfig,
     InstructionsConfig,
     EvalConfig,
-    LoggingConfig
+    LoggingConfig,
+    SecretsConfig
 )
 from guarantee_email_agent.utils.errors import ConfigurationError
 
+# Load .env file at module import time
+load_dotenv()
 
-def load_config(config_path: str = "config.yaml") -> AgentConfig:
-    """Load and parse YAML configuration file.
 
-    Args:
-        config_path: Path to config.yaml file
+def load_secrets() -> SecretsConfig:
+    """Load secrets from environment variables.
 
     Returns:
-        AgentConfig: Parsed configuration object
+        SecretsConfig: Loaded API keys and credentials
 
     Raises:
-        ConfigurationError: If YAML is invalid or cannot be parsed
+        ConfigurationError: If required environment variable is missing
     """
+    required_secrets = {
+        "ANTHROPIC_API_KEY": "anthropic_api_key",
+        "GMAIL_API_KEY": "gmail_api_key",
+        "WARRANTY_API_KEY": "warranty_api_key",
+        "TICKETING_API_KEY": "ticketing_api_key",
+    }
+
+    secrets = {}
+    for env_var, field_name in required_secrets.items():
+        value = os.getenv(env_var)
+        if not value or value.strip() == "":
+            raise ConfigurationError(
+                message=f"Missing required environment variable: {env_var}",
+                code="config_missing_secret",
+                details={"env_var": env_var}
+            )
+        secrets[field_name] = value.strip()
+
+    return SecretsConfig(**secrets)
+
+
+def load_config(config_path: str = None) -> AgentConfig:
+    """Load and parse YAML configuration file and environment variables.
+
+    Args:
+        config_path: Path to config.yaml (default: from CONFIG_PATH env var or "config.yaml")
+
+    Returns:
+        AgentConfig: Complete configuration including secrets
+
+    Raises:
+        ConfigurationError: If config invalid or secrets missing
+    """
+    # Allow CONFIG_PATH environment variable to override default
+    if config_path is None:
+        config_path = os.getenv("CONFIG_PATH", "config.yaml")
+
+    # Load secrets first (fail fast if missing)
+    secrets = load_secrets()
+
     config_file = Path(config_path)
 
     if not config_file.exists():
@@ -61,7 +104,8 @@ def load_config(config_path: str = "config.yaml") -> AgentConfig:
             mcp=mcp_config,
             instructions=instructions_config,
             eval=eval_config,
-            logging=logging_config
+            logging=logging_config,
+            secrets=secrets
         )
     except KeyError as e:
         raise ConfigurationError(

@@ -1,18 +1,59 @@
 """Configuration validator for schema validation."""
 
-from guarantee_email_agent.config.schema import AgentConfig
+from guarantee_email_agent.config.schema import AgentConfig, SecretsConfig
 from guarantee_email_agent.utils.errors import ConfigurationError
 
 
-def validate_config(config: AgentConfig) -> None:
-    """Validate configuration has all required fields with valid values.
+def validate_secrets(secrets: SecretsConfig) -> None:
+    """Validate secrets configuration.
 
     Args:
-        config: Parsed configuration object
+        secrets: Loaded secrets configuration
+
+    Raises:
+        ConfigurationError: If secrets validation fails
+    """
+    if not secrets.anthropic_api_key:
+        raise ConfigurationError(
+            message="ANTHROPIC_API_KEY is empty",
+            code="config_invalid_secret",
+            details={"env_var": "ANTHROPIC_API_KEY"}
+        )
+
+    if not secrets.gmail_api_key:
+        raise ConfigurationError(
+            message="GMAIL_API_KEY is empty",
+            code="config_invalid_secret",
+            details={"env_var": "GMAIL_API_KEY"}
+        )
+
+    if not secrets.warranty_api_key:
+        raise ConfigurationError(
+            message="WARRANTY_API_KEY is empty",
+            code="config_invalid_secret",
+            details={"env_var": "WARRANTY_API_KEY"}
+        )
+
+    if not secrets.ticketing_api_key:
+        raise ConfigurationError(
+            message="TICKETING_API_KEY is empty",
+            code="config_invalid_secret",
+            details={"env_var": "TICKETING_API_KEY"}
+        )
+
+
+def validate_config(config: AgentConfig) -> None:
+    """Validate complete configuration including secrets.
+
+    Args:
+        config: Complete agent configuration
 
     Raises:
         ConfigurationError: If validation fails
     """
+    # Validate secrets first
+    validate_secrets(config.secrets)
+
     # Validate MCP connections
     if not config.mcp.gmail.connection_string:
         raise ConfigurationError(
