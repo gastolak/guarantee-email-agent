@@ -1,6 +1,6 @@
 # Story 1.2: Create Configuration Schema and Validation
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,68 +27,68 @@ So that configuration errors are caught at startup with clear error messages bef
 
 ## Tasks / Subtasks
 
-- [ ] Create config module structure (AC: module files exist)
-  - [ ] Create `src/guarantee_email_agent/config/__init__.py` with public API exports
-  - [ ] Create `src/guarantee_email_agent/config/loader.py` for YAML loading
-  - [ ] Create `src/guarantee_email_agent/config/validator.py` for schema validation
-  - [ ] Create `src/guarantee_email_agent/config/schema.py` for schema definitions
+- [x] Create config module structure (AC: module files exist)
+  - [x] Create `src/guarantee_email_agent/config/__init__.py` with public API exports
+  - [x] Create `src/guarantee_email_agent/config/loader.py` for YAML loading
+  - [x] Create `src/guarantee_email_agent/config/validator.py` for schema validation
+  - [x] Create `src/guarantee_email_agent/config/schema.py` for schema definitions
 
-- [ ] Define configuration data models (AC: schema classes defined)
-  - [ ] Create MCPConfig dataclass for MCP connection settings
-  - [ ] Create InstructionsConfig dataclass for instruction file paths
-  - [ ] Create EvalConfig dataclass for eval suite settings
-  - [ ] Create LoggingConfig dataclass for logging configuration
-  - [ ] Create AgentConfig dataclass as top-level config container
+- [x] Define configuration data models (AC: schema classes defined)
+  - [x] Create MCPConfig dataclass for MCP connection settings
+  - [x] Create InstructionsConfig dataclass for instruction file paths
+  - [x] Create EvalConfig dataclass for eval suite settings
+  - [x] Create LoggingConfig dataclass for logging configuration
+  - [x] Create AgentConfig dataclass as top-level config container
 
-- [ ] Implement YAML configuration loader (AC: config loader parses YAML)
-  - [ ] Implement `load_config(config_path: str) -> AgentConfig` function
-  - [ ] Read YAML file using PyYAML's `safe_load()`
-  - [ ] Handle YAML parsing errors with clear error messages
-  - [ ] Parse nested configuration sections into dataclasses
-  - [ ] Return populated AgentConfig object
+- [x] Implement YAML configuration loader (AC: config loader parses YAML)
+  - [x] Implement `load_config(config_path: str) -> AgentConfig` function
+  - [x] Read YAML file using PyYAML's `safe_load()`
+  - [x] Handle YAML parsing errors with clear error messages
+  - [x] Parse nested configuration sections into dataclasses
+  - [x] Return populated AgentConfig object
 
-- [ ] Implement configuration validator (AC: validator checks required fields)
-  - [ ] Create `validate_config(config: AgentConfig) -> None` function
-  - [ ] Validate MCP section has all required connection strings
-  - [ ] Validate instructions section has main path and scenarios list
-  - [ ] Validate eval section has test_suite_path and pass_threshold
-  - [ ] Validate logging section has level, output, and file path
-  - [ ] Raise ConfigurationError with specific field path for missing fields
+- [x] Implement configuration validator (AC: validator checks required fields)
+  - [x] Create `validate_config(config: AgentConfig) -> None` function
+  - [x] Validate MCP section has all required connection strings
+  - [x] Validate instructions section has main path and scenarios list
+  - [x] Validate eval section has test_suite_path and pass_threshold
+  - [x] Validate logging section has level, output, and file path
+  - [x] Raise ConfigurationError with specific field path for missing fields
 
-- [ ] Create example config.yaml template (AC: configuration schema complete)
-  - [ ] Create `config.yaml` in project root with all required sections
-  - [ ] Document MCP connection settings for gmail, warranty_api, ticketing
-  - [ ] Document instruction file paths (main + scenarios)
-  - [ ] Document eval configuration (test_suite_path, pass_threshold: 99.0)
-  - [ ] Document logging configuration (level, output, file)
-  - [ ] Add comments explaining each section
+- [x] Create example config.yaml template (AC: configuration schema complete)
+  - [x] Create `config.yaml` in project root with all required sections
+  - [x] Document MCP connection settings for gmail, warranty_api, ticketing
+  - [x] Document instruction file paths (main + scenarios)
+  - [x] Document eval configuration (test_suite_path, pass_threshold: 99.0)
+  - [x] Document logging configuration (level, output, file)
+  - [x] Add comments explaining each section
 
-- [ ] Implement error handling with AgentError (AC: clear error messages)
-  - [ ] Create ConfigurationError class in `utils/errors.py`
-  - [ ] Use error code pattern: `config_missing_field`, `config_invalid_yaml`
-  - [ ] Include field path in error details dict
-  - [ ] Format error messages for user clarity
+- [x] Implement error handling with AgentError (AC: clear error messages)
+  - [x] Create ConfigurationError class in `utils/errors.py`
+  - [x] Use error code pattern: `config_missing_field`, `config_invalid_yaml`
+  - [x] Include field path in error details dict
+  - [x] Format error messages for user clarity
 
-- [ ] Integrate config loading into CLI (AC: startup fails fast on invalid config)
-  - [ ] Update `cli.py` to load config at startup
-  - [ ] Catch ConfigurationError and exit with code 2
-  - [ ] Log configuration errors to stderr
-  - [ ] Display actionable error message before exit
+- [x] Integrate config loading into CLI (AC: startup fails fast on invalid config)
+  - [x] Update `cli.py` to load config at startup
+  - [x] Catch ConfigurationError and exit with code 2
+  - [x] Log configuration errors to stderr
+  - [x] Display actionable error message before exit
 
-- [ ] Create unit tests for config module (AC: validation tested)
-  - [ ] Create `tests/config/test_loader.py`
-  - [ ] Test valid YAML config loading
-  - [ ] Test invalid YAML syntax handling
-  - [ ] Test missing required fields detection
-  - [ ] Create `tests/config/test_validator.py`
-  - [ ] Test all validation rules
-  - [ ] Test error message clarity
+- [x] Create unit tests for config module (AC: validation tested)
+  - [x] Create `tests/config/test_loader.py`
+  - [x] Test valid YAML config loading
+  - [x] Test invalid YAML syntax handling
+  - [x] Test missing required fields detection
+  - [x] Create `tests/config/test_validator.py`
+  - [x] Test all validation rules
+  - [x] Test error message clarity
 
-- [ ] Verify config integration (AC: config accessible throughout app)
-  - [ ] Load config in CLI and verify no errors
-  - [ ] Test with valid config.yaml
-  - [ ] Test with missing required field (should fail with exit code 2)
-  - [ ] Test with invalid YAML syntax (should fail with clear message)
+- [x] Verify config integration (AC: config accessible throughout app)
+  - [x] Load config in CLI and verify no errors
+  - [x] Test with valid config.yaml
+  - [x] Test with missing required field (should fail with exit code 2)
+  - [x] Test with invalid YAML syntax (should fail with clear message)
 
 ## Dev Notes
 
@@ -656,10 +656,51 @@ mv config.yaml.bak config.yaml
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-4-5-20250929
 
 ### Debug Log References
 
+No debugging required - all tasks completed successfully on first attempt.
+
 ### Completion Notes List
 
+**Implementation Summary:**
+- Created complete configuration module with schema, loader, and validator
+- Implemented AgentError hierarchy with ConfigurationError class
+- Defined dataclass-based configuration schema matching YAML structure
+- Implemented YAML loader with comprehensive error handling
+- Implemented validator with field-level validation and clear error messages
+- Created config.yaml template with all required sections and documentation
+- Integrated config loading into CLI with fail-fast behavior (exit code 2)
+- Created comprehensive unit tests (17 tests, all passing)
+- Verified CLI integration with valid/invalid config scenarios
+
+**All Acceptance Criteria Met:**
+✅ Config loader parses YAML files correctly
+✅ Configuration schema includes MCP, instructions, eval, and logging sections
+✅ Validator checks for all required fields
+✅ Missing fields produce clear error messages with field paths
+✅ Invalid YAML syntax produces appropriate errors
+✅ Agent startup fails fast (exit code 2) on invalid configuration
+✅ Valid configuration loads successfully
+✅ Config accessible throughout application via imports
+
+**Test Results:**
+- 17/17 unit tests passing
+- Valid config loads successfully
+- Missing config file: exit code 2 ✅
+- Invalid YAML syntax: clear error message ✅
+- Missing required fields: specific field path in error ✅
+
 ### File List
+
+- config.yaml
+- src/guarantee_email_agent/config/__init__.py
+- src/guarantee_email_agent/config/schema.py
+- src/guarantee_email_agent/config/loader.py
+- src/guarantee_email_agent/config/validator.py
+- src/guarantee_email_agent/utils/errors.py
+- src/guarantee_email_agent/cli.py (modified)
+- tests/config/__init__.py
+- tests/config/test_loader.py
+- tests/config/test_validator.py

@@ -1,6 +1,6 @@
 # Story 1.1: Initialize Python Project with uv
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -358,6 +358,15 @@ No debugging required - all tasks completed successfully on first attempt.
 - Created all supporting files (.gitignore, .env.example, README.md, Procfile)
 - Verified CLI functionality - help displays correctly with exit code 0
 
+**Code Review Fixes Applied (claude-sonnet-4-5-20250929):**
+- Removed incorrect `main.py` file (uv boilerplate, violated architecture pattern)
+- Fixed pyproject.toml: Changed `[dependency-groups]` → `[project.optional-dependencies]` for architecture compliance
+- Added comprehensive package structure tests (`tests/test_package_structure.py`) with 6 tests
+- Verified `__init__.py` already has version export (no change needed)
+- Fixed `.gitignore`: Removed `uv.lock` exclusion (lock file should be committed for reproducible builds)
+- Updated File List with test files (`test_cli.py`, `test_package_structure.py`)
+- All 9 tests passing after fixes
+
 **All Acceptance Criteria Met:**
 ✅ pyproject.toml exists with Python 3.10+ requirement
 ✅ Typer CLI framework added with [all] extras
@@ -386,4 +395,6 @@ No debugging required - all tasks completed successfully on first attempt.
 - src/guarantee_email_agent/llm/__init__.py
 - src/guarantee_email_agent/eval/__init__.py
 - src/guarantee_email_agent/utils/__init__.py
+- tests/test_cli.py
+- tests/test_package_structure.py
 

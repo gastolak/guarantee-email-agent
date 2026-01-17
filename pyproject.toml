@@ -16,7 +16,7 @@ dependencies = [
 [project.scripts]
 agent = "guarantee_email_agent.cli:app"
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",

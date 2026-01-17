@@ -1,0 +1,46 @@
+# Agent Configuration File
+# This file contains non-secret configuration for the warranty email agent
+# Secrets (API keys) are loaded from environment variables (see .env.example)
+
+# Evaluation Suite Configuration
+# Test suite path and pass rate threshold
+eval:
+  pass_threshold: 99.0  # Target: ≥99% pass rate (NFR1)
+  test_suite_path: "./evals/scenarios/"
+
+# Instruction File Paths
+# Main orchestration instruction and scenario-specific instructions
+instructions:
+  main: "./instructions/main.md"
+  scenarios:
+    - "./instructions/scenarios/valid-warranty.md"
+    - "./instructions/scenarios/invalid-warranty.md"
+    - "./instructions/scenarios/missing-info.md"
+
+# Logging Configuration
+# Log level, output destination, and file path
+logging:
+  file: "./logs/agent.log"  # Log file path
+  level: "INFO"  # Options: DEBUG, INFO, WARN, ERROR, CRITICAL
+  output: "stdout"  # Output to standard output
+
+# MCP Connection Configuration
+# These connection strings will be used to connect to MCP servers
+# Actual API keys/secrets are loaded from environment variables
+mcp:
+  gmail:
+    connection_string: "mcp://gmail"
+    # Gmail MCP server configuration (community server)
+    # Uses GMAIL_API_KEY from environment
+
+  ticketing_system:
+    connection_string: "mcp://ticketing"
+    endpoint: "https://tickets.example.com/api/v1"
+    # Custom MCP server wrapping ticketing system
+    # Uses TICKETING_API_KEY from environment
+
+  warranty_api:
+    connection_string: "mcp://warranty-api"
+    endpoint: "https://api.example.com/warranty/check"
+    # Custom MCP server wrapping warranty API
+    # Uses WARRANTY_API_KEY from environment
