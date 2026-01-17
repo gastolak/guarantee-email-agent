@@ -29,9 +29,10 @@ env/
 # uv
 .uv/
 
-# Environment variables
+# Secrets - NEVER commit these files!
 .env
-.env.local
+*.env
+!.env.example  # .env.example should be committed as template
 
 # IDE
 .vscode/
