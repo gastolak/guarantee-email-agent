@@ -176,8 +176,10 @@ class AgentRunner:
         """
         logger.info("Running in single-pass mode")
 
-        # Connect to Gmail MCP client
+        # Connect to all MCP clients
         await self.gmail_client.connect()
+        await self.processor.warranty_client.connect()
+        await self.processor.ticketing_client.connect()
 
         try:
             # Poll inbox
@@ -219,8 +221,10 @@ class AgentRunner:
         logger.info("Entering monitoring loop")
         logger.info(f"Polling interval: {self.polling_interval}s")
 
-        # Connect to Gmail MCP client
+        # Connect to all MCP clients
         await self.gmail_client.connect()
+        await self.processor.warranty_client.connect()
+        await self.processor.ticketing_client.connect()
 
         try:
             while not self._shutdown_requested:
