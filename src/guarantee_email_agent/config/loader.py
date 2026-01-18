@@ -12,6 +12,7 @@ from guarantee_email_agent.config.schema import (
     MCPConnectionConfig,
     InstructionsConfig,
     EvalConfig,
+    LLMConfig,
     LoggingConfig,
     SecretsConfig
 )
@@ -29,26 +30,27 @@ def load_secrets() -> SecretsConfig:
 
     Raises:
         ConfigurationError: If required environment variable is missing
+
+    Note:
+        At least one of ANTHROPIC_API_KEY or GEMINI_API_KEY must be set.
+        The specific one required depends on config.yaml llm.provider setting.
     """
-    required_secrets = {
-        "ANTHROPIC_API_KEY": "anthropic_api_key",
-        "GMAIL_API_KEY": "gmail_api_key",
-        "WARRANTY_API_KEY": "warranty_api_key",
-        "TICKETING_API_KEY": "ticketing_api_key",
-    }
+    # Optional LLM API keys (at least one must be provided)
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip() or None
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip() or None
 
-    secrets = {}
-    for env_var, field_name in required_secrets.items():
-        value = os.getenv(env_var)
-        if not value or value.strip() == "":
-            raise ConfigurationError(
-                message=f"Missing required environment variable: {env_var}",
-                code="config_missing_secret",
-                details={"env_var": env_var}
-            )
-        secrets[field_name] = value.strip()
+    # Other API keys (can be empty for testing/mock mode)
+    gmail_key = os.getenv("GMAIL_API_KEY", "").strip()
+    warranty_key = os.getenv("WARRANTY_API_KEY", "").strip()
+    ticketing_key = os.getenv("TICKETING_API_KEY", "").strip()
 
-    return SecretsConfig(**secrets)
+    return SecretsConfig(
+        anthropic_api_key=anthropic_key,
+        gemini_api_key=gemini_key,
+        gmail_api_key=gmail_key,
+        warranty_api_key=warranty_key,
+        ticketing_api_key=ticketing_key
+    )
 
 
 def load_config(config_path: str = None) -> AgentConfig:

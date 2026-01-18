@@ -2,6 +2,15 @@
 # This file contains non-secret configuration for the warranty email agent
 # Secrets (API keys) are loaded from environment variables (see .env.example)
 
+# LLM Provider Configuration
+# Choose between Anthropic Claude or Google Gemini
+llm:
+  provider: "gemini"  # "anthropic" or "gemini"
+  model: "gemini-2.0-flash-exp"  # Model name: "claude-3-5-sonnet-20241022" or "gemini-2.0-flash-exp"
+  temperature: 0.7
+  max_tokens: 2000
+  timeout_seconds: 15
+
 # Evaluation Suite Configuration
 # Test suite path and pass rate threshold
 eval:

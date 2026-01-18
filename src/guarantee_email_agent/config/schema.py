@@ -47,15 +47,26 @@ class LoggingConfig:
 
 
 @dataclass(frozen=True)
+class LLMConfig:
+    """LLM provider configuration."""
+    provider: str = "anthropic"  # "anthropic" or "gemini"
+    model: str = "claude-3-5-sonnet-20241022"  # Model name for the provider
+    temperature: float = 0.7
+    max_tokens: int = 2000
+    timeout_seconds: int = 15
+
+
+@dataclass(frozen=True)
 class SecretsConfig:
     """API keys and credentials loaded from environment variables.
 
     Immutable (frozen=True) to prevent accidental modification or leakage.
     """
-    anthropic_api_key: str
-    gmail_api_key: str
-    warranty_api_key: str
-    ticketing_api_key: str
+    anthropic_api_key: Optional[str] = None  # Required if provider=anthropic
+    gemini_api_key: Optional[str] = None  # Required if provider=gemini
+    gmail_api_key: str = ""
+    warranty_api_key: str = ""
+    ticketing_api_key: str = ""
 
 
 @dataclass(frozen=True)
@@ -74,9 +85,12 @@ class AgentConfig:
     eval: EvalConfig
     logging: LoggingConfig
     secrets: SecretsConfig
+    llm: LLMConfig = None  # Optional, defaults will be used
     agent: AgentRuntimeConfig = None  # Optional, defaults will be used
 
     def __post_init__(self):
-        """Ensure agent config exists with defaults."""
+        """Ensure agent and llm configs exist with defaults."""
         if self.agent is None:
             object.__setattr__(self, 'agent', AgentRuntimeConfig())
+        if self.llm is None:
+            object.__setattr__(self, 'llm', LLMConfig())
