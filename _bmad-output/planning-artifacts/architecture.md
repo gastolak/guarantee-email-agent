@@ -812,59 +812,74 @@ Custom MCP servers (warranty API, ticketing) should be simple, focused component
 
 ### LLM Integration & Determinism Strategy
 
-**Decision: Direct Anthropic SDK with Determinism Controls**
+**Decision: Multi-Provider LLM Architecture with Gemini as Primary**
+
+**Updated (Story 4.1):** The architecture now supports multiple LLM providers through a factory pattern abstraction. **Gemini 2.0 Flash** is the primary provider due to superior performance and cost characteristics.
 
 **Rationale:**
-Given the instruction-driven architecture where instructions are custom markdown/XML files, direct SDK usage provides maximum control over prompting and determinism without unnecessary abstractions.
+Given the instruction-driven architecture where instructions are custom markdown/XML files, direct SDK usage provides maximum control over prompting and determinism. Multi-provider support enables flexibility for future model improvements while maintaining a consistent interface.
 
-**LLM Integration Approach:**
+**LLM Provider Architecture:**
 
-**Anthropic SDK Configuration:**
+**Primary Provider - Gemini:**
+- Package: `google-generativeai>=0.3.0` (migrating to `google-genai` for future compatibility)
+- Model: `gemini-2.0-flash-exp`
+- Temperature: Set to `0.7` for balanced creativity
+- Advantages: Faster response times, lower cost, competitive quality
+
+**Secondary Provider - Anthropic:**
 - Package: `anthropic>=0.8.0`
-- Model: Pin to specific version (e.g., `claude-3-5-sonnet-20241022`)
+- Model: `claude-3-5-sonnet-20241022` (pinned version)
 - Temperature: Set to `0` for maximum determinism
-- System message: Load from instruction files (main.md + scenario-specific)
-- User message: Email content and context
+- Advantages: Highest quality responses, proven instruction-following
 
-**Prompt Construction:**
+**Provider Factory Pattern:**
 ```python
-from anthropic import Anthropic
+from guarantee_email_agent.llm.provider import create_llm_provider
 
-client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+# Configuration in config.yaml
+llm:
+  provider: "gemini"  # or "anthropic"
+  model: "gemini-2.0-flash-exp"
+  temperature: 0.7
+  max_tokens: 8192
+  timeout_seconds: 15
 
-# Load main instruction
-main_instruction = load_instruction("instructions/main.md")
-
-# Load scenario-specific instruction based on context
-scenario_instruction = load_instruction(f"instructions/scenarios/{scenario}.md")
-
-response = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
-    temperature=0,  # Maximum determinism
-    max_tokens=1024,
-    system=f"{main_instruction}\n\n{scenario_instruction}",
-    messages=[{"role": "user", "content": email_content}]
+# Usage in code
+llm_provider = create_llm_provider(config)
+response = await llm_provider.create_message(
+    system_message=f"{main_instruction}\n\n{scenario_instruction}",
+    user_message=email_content,
+    max_tokens=config.llm.max_tokens,
+    temperature=config.llm.temperature
 )
 ```
 
 **Determinism Strategy for 99% Pass Rate:**
 
-1. **Temperature 0:** Minimize response variability
-2. **Pinned Model Version:** Prevent behavior drift from model updates
+1. **Controlled Temperature:** Gemini uses 0.7 for balanced creativity, Anthropic uses 0 for maximum determinism
+2. **Pinned Model Versions:** Prevent behavior drift from model updates
 3. **Precise Instructions:** Detailed, unambiguous instruction files
 4. **Scenario Routing:** Load correct instruction file based on context
 5. **Eval Validation:** Continuous testing ensures instruction quality
+6. **Provider Abstraction:** Consistent interface regardless of underlying LLM
 
 **No LangChain/Framework Because:**
 - Adds complexity and dependencies without clear benefit
 - Custom instruction architecture already provides structure
 - Direct SDK gives full control for debugging eval failures
 - Simpler stack = easier troubleshooting
+- Provider abstraction layer provides needed flexibility without framework overhead
 
 **Timeout Handling:**
 - LLM API calls timeout after 15 seconds (NFR11)
 - Retry with exponential backoff (max 3 retries per NFR17)
 - Failed retries log error and mark email as unprocessed (NFR5, NFR45)
+
+**Environment Variables:**
+- `GEMINI_API_KEY`: Required for Gemini provider (primary)
+- `ANTHROPIC_API_KEY`: Required for Anthropic provider (secondary)
+- API keys are optional in config loading to support eval/mock mode
 
 ### Instruction File Format & Schema
 

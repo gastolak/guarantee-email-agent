@@ -21,13 +21,19 @@ async def test_gmail_client_connect():
 
 @pytest.mark.asyncio
 async def test_gmail_monitor_inbox_empty():
-    """Test monitoring inbox returns empty list (mock)"""
+    """Test monitoring inbox returns empty list on second poll (mock)"""
     client = GmailMCPClient("mcp://gmail")
     await client.connect()
 
-    emails = await client.monitor_inbox()
-    assert isinstance(emails, list)
-    assert len(emails) == 0
+    # First poll returns 1 mock email
+    emails_first = await client.monitor_inbox()
+    assert isinstance(emails_first, list)
+    assert len(emails_first) == 1
+
+    # Second poll returns empty
+    emails_second = await client.monitor_inbox()
+    assert isinstance(emails_second, list)
+    assert len(emails_second) == 0
 
 
 @pytest.mark.asyncio

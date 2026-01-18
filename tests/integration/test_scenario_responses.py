@@ -186,13 +186,10 @@ async def test_end_to_end_valid_warranty_response(integration_config: AgentConfi
     # Create response generator
     generator = ResponseGenerator(integration_config, main_instruction)
 
-    # Mock Anthropic API response
-    mock_response = Mock()
-    mock_response.content = [
-        Mock(text="Dear Customer,\n\nI'm pleased to confirm your warranty is valid until 2025-12-31.\n\nBest regards,\nSupport Team")
-    ]
+    # Mock LLM provider response (returns string directly)
+    mock_response_text = "Dear Customer,\n\nI'm pleased to confirm your warranty is valid until 2025-12-31.\n\nBest regards,\nSupport Team"
 
-    with patch.object(generator.client.messages, 'create', return_value=mock_response):
+    with patch.object(generator.llm_provider, 'create_message', return_value=mock_response_text):
         response = await generator.generate_response(
             scenario_name="valid-warranty",
             email_content="Hi, I need to check warranty for serial SN12345",
@@ -211,12 +208,10 @@ async def test_end_to_end_invalid_warranty_response(integration_config: AgentCon
     main_instruction = load_instruction(integration_main_instruction)
     generator = ResponseGenerator(integration_config, main_instruction)
 
-    mock_response = Mock()
-    mock_response.content = [
-        Mock(text="Dear Customer,\n\nYour warranty expired on 2024-06-30. We offer extended warranty options.\n\nBest regards,\nSupport Team")
-    ]
+    # Mock LLM provider response
+    mock_response_text = "Dear Customer,\n\nYour warranty expired on 2024-06-30. We offer extended warranty options.\n\nBest regards,\nSupport Team"
 
-    with patch.object(generator.client.messages, 'create', return_value=mock_response):
+    with patch.object(generator.llm_provider, 'create_message', return_value=mock_response_text):
         response = await generator.generate_response(
             scenario_name="invalid-warranty",
             email_content="Check my warranty for SN12345",
@@ -234,12 +229,10 @@ async def test_end_to_end_missing_info_response(integration_config: AgentConfig,
     main_instruction = load_instruction(integration_main_instruction)
     generator = ResponseGenerator(integration_config, main_instruction)
 
-    mock_response = Mock()
-    mock_response.content = [
-        Mock(text="Dear Customer,\n\nTo check your warranty, I'll need your product serial number.\n\nBest regards,\nSupport Team")
-    ]
+    # Mock LLM provider response
+    mock_response_text = "Dear Customer,\n\nTo check your warranty, I'll need your product serial number.\n\nBest regards,\nSupport Team"
 
-    with patch.object(generator.client.messages, 'create', return_value=mock_response):
+    with patch.object(generator.llm_provider, 'create_message', return_value=mock_response_text):
         response = await generator.generate_response(
             scenario_name="missing-info",
             email_content="I need warranty information",
@@ -257,12 +250,10 @@ async def test_end_to_end_graceful_degradation_fallback(integration_config: Agen
     main_instruction = load_instruction(integration_main_instruction)
     generator = ResponseGenerator(integration_config, main_instruction)
 
-    mock_response = Mock()
-    mock_response.content = [
-        Mock(text="Dear Customer,\n\nThank you for contacting us. Please provide more details.\n\nBest regards,\nSupport Team")
-    ]
+    # Mock LLM provider response
+    mock_response_text = "Dear Customer,\n\nThank you for contacting us. Please provide more details.\n\nBest regards,\nSupport Team"
 
-    with patch.object(generator.client.messages, 'create', return_value=mock_response):
+    with patch.object(generator.llm_provider, 'create_message', return_value=mock_response_text):
         # Try to use nonexistent scenario - should fall back to graceful-degradation
         response = await generator.generate_response(
             scenario_name="nonexistent-scenario",

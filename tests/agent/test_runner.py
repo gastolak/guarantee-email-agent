@@ -59,11 +59,14 @@ def mock_processor():
     """Create a mock email processor."""
     processor = Mock()
     processor.gmail_client = Mock()
-    processor.gmail_client.get_unread_emails = AsyncMock(return_value=[])
+    processor.gmail_client.connect = AsyncMock()  # Added for runner.run()
+    processor.gmail_client.monitor_inbox = AsyncMock(return_value=[])  # Changed from get_unread_emails
     processor.gmail_client.close = AsyncMock()
     processor.warranty_client = Mock()
+    processor.warranty_client.connect = AsyncMock()  # Added for runner.run()
     processor.warranty_client.close = AsyncMock()
     processor.ticketing_client = Mock()
+    processor.ticketing_client.connect = AsyncMock()  # Added for runner.run()
     processor.ticketing_client.close = AsyncMock()
     processor.process_email = AsyncMock(return_value=ProcessingResult(
         success=True,
@@ -123,12 +126,12 @@ async def test_poll_inbox_no_emails(mock_config, mock_processor):
     """Test polling inbox returns empty list when no emails."""
     runner = AgentRunner(mock_config, mock_processor)
 
-    mock_processor.gmail_client.get_unread_emails = AsyncMock(return_value=[])
+    mock_processor.gmail_client.monitor_inbox = AsyncMock(return_value=[])
 
     emails = await runner.poll_inbox()
 
     assert emails == []
-    mock_processor.gmail_client.get_unread_emails.assert_called_once()
+    mock_processor.gmail_client.monitor_inbox.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -140,7 +143,7 @@ async def test_poll_inbox_with_emails(mock_config, mock_processor):
         {"id": "1", "subject": "Test 1"},
         {"id": "2", "subject": "Test 2"},
     ]
-    mock_processor.gmail_client.get_unread_emails = AsyncMock(return_value=test_emails)
+    mock_processor.gmail_client.monitor_inbox = AsyncMock(return_value=test_emails)
 
     emails = await runner.poll_inbox()
 
@@ -154,7 +157,7 @@ async def test_poll_inbox_error_handling(mock_config, mock_processor):
     runner = AgentRunner(mock_config, mock_processor)
 
     # Simulate error
-    mock_processor.gmail_client.get_unread_emails = AsyncMock(
+    mock_processor.gmail_client.monitor_inbox = AsyncMock(
         side_effect=Exception("Gmail API error")
     )
 
@@ -239,12 +242,12 @@ async def test_run_shutdown_immediately(mock_config, mock_processor):
     runner = AgentRunner(mock_config, mock_processor)
     runner._shutdown_requested = True  # Request shutdown before starting
 
-    mock_processor.gmail_client.get_unread_emails = AsyncMock(return_value=[])
+    mock_processor.gmail_client.monitor_inbox = AsyncMock(return_value=[])
 
     await runner.run()
 
     # Should exit immediately without polling
-    mock_processor.gmail_client.get_unread_emails.assert_not_called()
+    mock_processor.gmail_client.monitor_inbox.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -252,7 +255,7 @@ async def test_run_shutdown_after_one_iteration(mock_config, mock_processor):
     """Test run loop exits after processing one iteration."""
     runner = AgentRunner(mock_config, mock_processor)
 
-    mock_processor.gmail_client.get_unread_emails = AsyncMock(return_value=[])
+    mock_processor.gmail_client.monitor_inbox = AsyncMock(return_value=[])
 
     # Set shutdown flag after short delay
     async def shutdown_after_delay():
@@ -266,7 +269,7 @@ async def test_run_shutdown_after_one_iteration(mock_config, mock_processor):
     )
 
     # Should have polled at least once
-    assert mock_processor.gmail_client.get_unread_emails.called
+    assert mock_processor.gmail_client.monitor_inbox.called
 
 
 @pytest.mark.asyncio
