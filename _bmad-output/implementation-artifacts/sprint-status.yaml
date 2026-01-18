@@ -1,6 +1,6 @@
 # Sprint Status Tracking for guarantee-email-agent
-# OPTIMIZED STRUCTURE: 16 stories across 4 epics (48% reduction from original 31 stories)
-# Based on: epics-optimized.md (Story 2.2 inferred from epic summary)
+# OPTIMIZED STRUCTURE: 15 stories across 4 epics (52% reduction from original 31 stories)
+# Based on: epics-optimized.md
 # Last Updated: 2026-01-18
 
 # STATUS DEFINITIONS:
@@ -19,20 +19,18 @@ development_status:
   1-4-file-path-verification-and-mcp-connection-testing: ready-for-dev
   epic-1-retrospective: backlog
 
-  # Epic 2: MCP Integration Layer (CONSOLIDATED - 2 stories)
-  # Story 2.1 consolidates implementation (old 2.1-2.4)
-  # Story 2.2 covers integration testing and deployment (inferred from epic total)
+  # Epic 2: MCP Integration Layer (CONSOLIDATED - 1 story)
+  # Story 2.1 fully consolidates all MCP work (old stories 2.1, 2.2, 2.3, 2.4)
   epic-2: in-progress
   2-1-all-mcp-clients-with-retry-logic-and-circuit-breaker: ready-for-dev
-  2-2-mcp-integration-testing-and-deployment: backlog
   epic-2-retrospective: backlog
 
   # Epic 3: Instruction Engine & Email Processing (MERGED - 6 stories)
   # Merges old Epic 3 (Instruction Engine) + Epic 4 (Email Processing)
   epic-3: in-progress
   3-1-instruction-parser-and-main-orchestration-logic: ready-for-dev
-  3-2-scenario-routing-and-llm-response-generation: backlog
-  3-3-email-parser-and-serial-number-extraction: backlog
+  3-2-scenario-routing-and-llm-response-generation: ready-for-dev
+  3-3-email-parser-and-serial-number-extraction: ready-for-dev
   3-4-end-to-end-email-processing-pipeline: backlog
   3-5-cli-agent-run-command-and-graceful-shutdown: backlog
   3-6-structured-logging-and-graceful-degradation: backlog
@@ -50,19 +48,18 @@ development_status:
 # Project Summary
 project_info:
   total_epics: 4
-  total_stories: 16
+  total_stories: 15
   project_name: guarantee-email-agent
   start_date: 2026-01-17
-  optimization_note: "48% story reduction from original 31 stories while maintaining 100% FR/NFR coverage"
-  note: "Story 2.2 inferred from epic summary (not explicitly defined in epics-optimized.md)"
+  optimization_note: "52% story reduction from original 31 stories while maintaining 100% FR/NFR coverage"
 
 # Sprint Metrics (auto-calculated)
 sprint_metrics:
-  stories_ready: 3  # 1.4, 2.1, 3.1
+  stories_ready: 5  # 1.4, 2.1, 3.1, 3.2, 3.3
   stories_in_review: 2  # 1.2, 1.3
   stories_done: 1  # 1.1
-  current_epic: epic-2
-  completion_percentage: 18.75  # 3 of 16 stories ready or complete
+  current_epic: epic-3
+  completion_percentage: 33  # 5 of 15 stories ready or complete
 
 # Optimization Mapping (for reference)
 # Shows how old stories map to new optimized stories
@@ -76,10 +73,9 @@ optimization_mapping:
       - "1.4 → 1.4 (unchanged)"
 
   epic-2:
-    note: "Consolidated 4 stories → 2 stories"
+    note: "Consolidated 4 stories → 1 story (fully integrated)"
     stories:
-      - "2.1 ALL MCP Clients: Consolidates old 2.1 (Gmail) + 2.2 (Warranty) + 2.3 (Ticketing) + 2.4 (Circuit Breaker)"
-      - "2.2 Integration Testing & Deployment: MCP end-to-end testing and deployment setup (inferred)"
+      - "2.1 ALL MCP Clients: Consolidates old 2.1 (Gmail) + 2.2 (Warranty) + 2.3 (Ticketing) + 2.4 (Circuit Breaker) - includes all implementation, testing, retry, and circuit breaker logic"
 
   epic-3:
     note: "Merged old Epic 3 + Epic 4 into 6 stories"
