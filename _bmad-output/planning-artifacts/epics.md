@@ -163,8 +163,10 @@ This document provides the complete epic and story breakdown for guarantee-email
 - Validate instruction syntax on startup - fail fast on malformed files
 
 **From Architecture - LLM Determinism:**
-- ALWAYS use temperature=0 for maximum determinism
-- ALWAYS pin model version: `claude-3-5-sonnet-20241022`
+- **Primary Provider: Gemini 2.0 Flash** (`gemini-2.0-flash-exp`, temperature=0.7)
+- **Alternative Provider: Anthropic Claude** (`claude-3-5-sonnet-20241022`, temperature=0)
+- Multi-provider architecture via factory pattern: `create_llm_provider(config)`
+- ALWAYS pin model versions to prevent behavior drift
 - 15-second timeout on all LLM API calls
 - Retry on timeout (max 3 attempts), then mark email unprocessed
 
@@ -303,7 +305,7 @@ So that I have a modern, fast, reproducible Python project foundation ready for 
 **Then** The project is created with src-layout structure: `src/guarantee_email_agent/`
 **And** pyproject.toml exists with Python 3.10+ requirement
 **And** Typer CLI framework is added as dependency with `[all]` extras
-**And** Core dependencies are specified: anthropic>=0.8.0, pyyaml>=6.0, python-dotenv>=1.0.0, httpx>=0.25.0, tenacity>=8.2.0
+**And** Core dependencies are specified: google-generativeai>=0.3.0, anthropic>=0.8.0, pyyaml>=6.0, python-dotenv>=1.0.0, httpx>=0.25.0, tenacity>=8.2.0
 **And** Dev dependencies include pytest>=7.4.0 and pytest-asyncio>=0.21.0
 **And** All required directories exist: `src/guarantee_email_agent/{config,email,instructions,integrations,llm,eval,utils}`
 **And** All user content directories exist: `instructions/scenarios/`, `evals/scenarios/`, `mcp_servers/{warranty_mcp_server,ticketing_mcp_server}`
@@ -512,8 +514,9 @@ So that the agent follows a consistent decision-making process for all warranty 
 **And** Main instruction defines: email analysis approach, serial number extraction guidance, scenario detection logic
 **And** The orchestrator constructs LLM system messages from main instruction content
 **And** Main instruction guides the LLM to identify which scenario applies (valid warranty, invalid warranty, missing info)
-**And** The orchestrator uses Anthropic SDK with temperature=0 for determinism (from architecture)
-**And** Model is pinned to `claude-3-5-sonnet-20241022` (from architecture)
+**And** The orchestrator uses LLM provider abstraction via `create_llm_provider(config)` (from architecture)
+**And** Default provider is Gemini with model `gemini-2.0-flash-exp` (from config.yaml)
+**And** Temperature is configurable per provider (Gemini: 0.7, Anthropic: 0) for determinism balance
 **And** Main instruction loading is validated on startup
 **And** Failed main instruction loading prevents agent startup
 **And** The orchestrator logs when main instruction is loaded: "Main instruction loaded: version 1.0.0"
@@ -552,12 +555,12 @@ So that all agent behavior is controlled through editable instruction files rath
 **And** System message includes: main instruction content + scenario-specific instruction content
 **And** User message includes: email content, extracted serial number, warranty API response
 **And** LLM API calls use temperature=0 for maximum determinism (from architecture)
-**And** LLM API calls use pinned model `claude-3-5-sonnet-20241022` (from architecture)
+**And** LLM API calls use configured provider and model (default: Gemini `gemini-2.0-flash-exp`) (from architecture)
 **And** Each LLM call has a 15-second timeout (NFR11, from architecture)
 **And** LLM call failures trigger retry with max 3 attempts (from architecture)
 **And** After 3 failed attempts, email is marked unprocessed (from architecture)
 **And** Generated responses follow scenario instruction guidance for tone, content, and next steps (FR16)
-**And** The generator logs LLM calls: "LLM call: scenario=valid-warranty, model=claude-3-5-sonnet-20241022, temp=0"
+**And** The generator logs LLM calls: "LLM call: provider=gemini, scenario=valid-warranty, model=gemini-2.0-flash-exp, temp=0.7"
 **And** Instruction-driven responses are contextually appropriate for each warranty status (FR15)
 **And** The agent can generate graceful degradation responses for out-of-scope cases (FR18)
 
