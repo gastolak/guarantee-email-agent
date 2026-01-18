@@ -133,13 +133,20 @@ def validate_secrets(config: AgentConfig) -> None:
     """
     missing_secrets: List[str] = []
 
-    # Check Anthropic API key (NFR12)
-    if not config.secrets.anthropic_api_key:
-        missing_secrets.append("ANTHROPIC_API_KEY")
+    # Check LLM API key based on configured provider (NFR12)
+    provider = config.llm.provider.lower()
+    if provider == "anthropic":
+        if not config.secrets.anthropic_api_key:
+            missing_secrets.append("ANTHROPIC_API_KEY (required for provider: anthropic)")
+    elif provider == "gemini":
+        if not config.secrets.gemini_api_key:
+            missing_secrets.append("GEMINI_API_KEY (required for provider: gemini)")
+    else:
+        missing_secrets.append(f"Unknown LLM provider: {provider}")
 
     # Note: Gmail, Warranty, and Ticketing credentials will be validated
-    # when MCP servers are implemented in Story 2.1
-    # For now, we only check the critical Anthropic key
+    # when MCP connections are tested in validate_mcp_connections()
+    # MCP keys are optional for eval/mock mode
 
     if missing_secrets:
         raise ConfigurationError(

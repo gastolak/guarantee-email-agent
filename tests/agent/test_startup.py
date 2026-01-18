@@ -20,6 +20,7 @@ from guarantee_email_agent.config.schema import (
     MCPConnectionConfig,
     EvalConfig,
     LoggingConfig,
+    LLMConfig,
 )
 from guarantee_email_agent.utils.errors import ConfigurationError, MCPConnectionError
 
@@ -38,6 +39,13 @@ def mock_config(tmp_path):
         (scenarios_dir / f"{scenario}.md").write_text(f"---\nname: {scenario}\ndescription: Test {scenario}\nversion: 1.0.0\n---\n<scenario>test</scenario>")
 
     return AgentConfig(
+        llm=LLMConfig(
+            provider="gemini",
+            model="gemini-2.0-flash-exp",
+            temperature=0.7,
+            max_tokens=8192,
+            timeout_seconds=15
+        ),
         mcp=MCPConfig(
             gmail=MCPConnectionConfig(connection_string="gmail://test"),
             warranty_api=MCPConnectionConfig(connection_string="warranty://test"),
@@ -51,7 +59,8 @@ def mock_config(tmp_path):
         eval=EvalConfig(test_suite_path="evals"),
         logging=LoggingConfig(),
         secrets=SecretsConfig(
-            anthropic_api_key="test-key",
+            anthropic_api_key="test-anthropic-key",
+            gemini_api_key="test-gemini-key",
             gmail_api_key="gmail-key",
             warranty_api_key="warranty-key",
             ticketing_api_key="ticket-key",
@@ -127,8 +136,15 @@ def test_validate_secrets_success(mock_config):
 
 
 def test_validate_secrets_missing_anthropic_key():
-    """Test secrets validation fails when Anthropic key missing."""
+    """Test secrets validation fails when Anthropic key missing for Anthropic provider."""
     config = AgentConfig(
+        llm=LLMConfig(
+            provider="anthropic",  # Using Anthropic provider
+            model="claude-3-5-sonnet-20241022",
+            temperature=0,
+            max_tokens=8192,
+            timeout_seconds=15
+        ),
         mcp=MCPConfig(
             gmail=MCPConnectionConfig(connection_string="gmail://test"),
             warranty_api=MCPConnectionConfig(connection_string="warranty://test"),
@@ -143,6 +159,7 @@ def test_validate_secrets_missing_anthropic_key():
         logging=LoggingConfig(),
         secrets=SecretsConfig(
             anthropic_api_key="",  # Missing!
+            gemini_api_key="gemini-key",  # Has Gemini key but using Anthropic provider
             gmail_api_key="gmail-key",
             warranty_api_key="warranty-key",
             ticketing_api_key="ticket-key",

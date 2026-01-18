@@ -102,11 +102,12 @@ def test_register_signal_handlers(mock_config, mock_processor):
     with patch('signal.signal') as mock_signal:
         runner.register_signal_handlers()
 
-        # Should register SIGTERM and SIGINT
-        assert mock_signal.call_count == 2
+        # Should register SIGTERM, SIGINT, and SIGHUP
+        assert mock_signal.call_count == 3
         calls = [call[0] for call in mock_signal.call_args_list]
         assert (signal.SIGTERM, runner._handle_shutdown_signal) in calls
         assert (signal.SIGINT, runner._handle_shutdown_signal) in calls
+        assert (signal.SIGHUP, runner._handle_sighup) in calls
 
 
 def test_handle_shutdown_signal(mock_config, mock_processor):
