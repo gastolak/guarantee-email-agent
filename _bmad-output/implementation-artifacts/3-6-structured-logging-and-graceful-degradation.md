@@ -1,6 +1,6 @@
 # Story 3.6: Structured Logging and Graceful Degradation
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
