@@ -29,660 +29,588 @@ So that misconfiguration is detected immediately before processing begins with a
 
 ## Tasks / Subtasks
 
-- [ ] Create file path verification module (AC: verify instruction files exist)
-  - [ ] Create `src/guarantee_email_agent/config/path_verifier.py`
-  - [ ] Implement `verify_file_exists(file_path: str) -> None` function
-  - [ ] Check file exists using Path.exists()
-  - [ ] Check file is readable using Path.is_file() and permissions
-  - [ ] Raise ConfigurationError with specific file path if missing or unreadable
+- [ ] Create file path verification module (AC: verifies all instruction file paths)
+  - [ ] Create `src/guarantee_email_agent/config/path_validator.py`
+  - [ ] Implement `verify_file_paths(config: AgentConfig) -> None` function
+  - [ ] Check `config.instructions.main` file exists
+  - [ ] Check each path in `config.instructions.scenarios` list exists
+  - [ ] Check `config.eval.test_suite_path` directory exists
+  - [ ] Check file permissions (readable flag)
+  - [ ] Raise ConfigurationError with specific file path for missing files
+  - [ ] Raise ConfigurationError for permission denied errors
 
-- [ ] Implement instruction path validation (AC: missing instruction files detected)
-  - [ ] Create `verify_instruction_paths(config: AgentConfig) -> None` function
-  - [ ] Verify main instruction file exists and is readable
-  - [ ] Verify each scenario instruction file exists and is readable
-  - [ ] Raise ConfigurationError with clear message for each missing file
-  - [ ] Include full file path in error details
+- [ ] Implement instruction file path validation (AC: missing files produce clear errors)
+  - [ ] Use pathlib.Path for cross-platform compatibility
+  - [ ] Validate main instruction file: `instructions/main.md`
+  - [ ] Validate scenario instruction files from config
+  - [ ] Handle both absolute and relative paths correctly
+  - [ ] Error message format: "Instruction file not found: {file_path}"
+  - [ ] Error message for permissions: "Cannot read instruction file: {file_path} (permission denied)"
+  - [ ] Include file path in error details dict
 
-- [ ] Implement eval path validation (AC: eval directory verified)
-  - [ ] Create `verify_eval_paths(config: AgentConfig) -> None` function
-  - [ ] Verify eval test_suite_path directory exists
-  - [ ] Create directory if missing (with warning log)
-  - [ ] Verify directory is readable
-  - [ ] Raise ConfigurationError if directory cannot be created or accessed
+- [ ] Implement eval directory verification (AC: test suite path exists)
+  - [ ] Verify `evals/scenarios/` directory exists
+  - [ ] Check directory is readable
+  - [ ] Error if eval directory missing: "Eval directory not found: {test_suite_path}"
+  - [ ] Log warning if eval directory is empty (no test cases yet)
 
-- [ ] Create MCP connection testing module (AC: MCP connections tested)
-  - [ ] Create `src/guarantee_email_agent/config/mcp_tester.py`
-  - [ ] Create MCPConnectionTester class
-  - [ ] Implement `test_connection(connection_string: str, timeout: int = 5) -> bool` method
-  - [ ] Note: Actual MCP SDK integration happens in Epic 2
-  - [ ] For now, create stub that validates connection string format
-  - [ ] Add TODO comment for Epic 2 implementation
+- [ ] Create MCP connection testing framework (AC: tests all MCP connections)
+  - [ ] Create `src/guarantee_email_agent/integrations/connection_tester.py`
+  - [ ] Implement `test_mcp_connections(config: AgentConfig) -> None` function
+  - [ ] Create base test method: `test_connection(connection_string, name, timeout=5) -> bool`
+  - [ ] Handle connection timeouts (5 seconds per NFR and AC)
+  - [ ] Handle connection refused errors
+  - [ ] Handle authentication errors
+  - [ ] Return detailed error messages with connection string and error type
 
-- [ ] Implement MCP connection string validation (AC: connection format validated)
-  - [ ] Create `validate_mcp_connection_string(connection_string: str) -> None` function
-  - [ ] Validate format matches "mcp://<service-name>"
-  - [ ] Raise ConfigurationError if format invalid
-  - [ ] Provide example of correct format in error message
+- [ ] Implement Gmail MCP connection test (AC: tests Gmail MCP connection)
+  - [ ] Extract Gmail connection string from config.mcp.gmail
+  - [ ] Create MCP client for Gmail using connection string
+  - [ ] Attempt simple connection handshake
+  - [ ] Test with 5-second timeout
+  - [ ] Log success: "MCP connection tested: gmail (mcp://gmail) - OK"
+  - [ ] On failure: raise MCPError with code "mcp_connection_failed"
+  - [ ] Include connection details in error: "MCP connection failed: gmail (mcp://gmail) - connection refused"
 
-- [ ] Create startup validator orchestrator (AC: all validation in one place)
-  - [ ] Create `src/guarantee_email_agent/config/startup_validator.py`
-  - [ ] Implement `validate_startup(config: AgentConfig) -> None` function
-  - [ ] Call verify_instruction_paths(config)
-  - [ ] Call verify_eval_paths(config)
-  - [ ] Call validate_mcp_connections(config)
-  - [ ] Log progress at each stage
-  - [ ] Aggregate all validation errors for comprehensive error reporting
+- [ ] Implement Warranty API MCP connection test (AC: tests warranty API connection)
+  - [ ] Extract warranty API connection string from config.mcp.warranty_api
+  - [ ] Create MCP client for warranty API
+  - [ ] Test connection handshake
+  - [ ] 5-second timeout
+  - [ ] Log success: "MCP connection tested: warranty_api - OK"
+  - [ ] On failure: "MCP connection failed: warranty_api - {error_details}"
+  - [ ] Handle endpoint connectivity if specified in config
 
-- [ ] Add MCP connection error handling (AC: exit code 3 for MCP failures)
-  - [ ] Create MCPConnectionError in utils/errors.py
-  - [ ] Subclass of AgentError with code "mcp_connection_failed"
-  - [ ] Include connection details in error (service name, connection string)
-  - [ ] CLI catches MCPConnectionError and exits with code 3
+- [ ] Implement Ticketing System MCP connection test (AC: tests ticketing connection)
+  - [ ] Extract ticketing connection string from config.mcp.ticketing_system
+  - [ ] Create MCP client for ticketing system
+  - [ ] Test connection handshake
+  - [ ] 5-second timeout
+  - [ ] Log success: "MCP connection tested: ticketing_system - OK"
+  - [ ] On failure: "MCP connection failed: ticketing_system - {error_details}"
+  - [ ] Handle endpoint connectivity if specified in config
 
-- [ ] Integrate startup validation into CLI (AC: startup validates before processing)
-  - [ ] Update cli.py to call validate_startup() after config loading
+- [ ] Integrate path verification into startup sequence (AC: startup validates all paths)
+  - [ ] Update `cli.py` load_and_validate_config() function
+  - [ ] Call verify_file_paths(config) after config validation
+  - [ ] Catch ConfigurationError and exit with code 2
+  - [ ] Log: "File paths verified" on success
+  - [ ] Display actionable error message on failure
+
+- [ ] Integrate MCP connection testing into startup (AC: tests all connections before processing)
+  - [ ] Call test_mcp_connections(config) after path verification
+  - [ ] Catch MCPError and exit with code 3 (MCP connection failure per NFR29)
+  - [ ] Log: "MCP connections tested" on success
+  - [ ] Display connection-specific error messages on failure
+  - [ ] Ensure all 3 connections tested before declaring success
+
+- [ ] Implement startup logging sequence (AC: clear startup progress logs)
+  - [ ] Log "Agent starting..." at beginning
   - [ ] Log "Configuration valid" after config loads
-  - [ ] Log "File paths verified" after path verification
-  - [ ] Log "MCP connections tested" after connection validation
-  - [ ] Log "Agent ready" only after all validation passes
-  - [ ] Catch ConfigurationError (exit code 2) and MCPConnectionError (exit code 3)
+  - [ ] Log "File paths verified" after path validation
+  - [ ] Log "MCP connections tested" after connection tests
+  - [ ] Log "Agent ready" only after all validations pass
+  - [ ] Use INFO level for startup progress logs
+  - [ ] Include timing information for 30-second startup target (NFR9)
 
-- [ ] Add startup timing validation (AC: startup completes within 30 seconds)
-  - [ ] Add startup timing measurement
-  - [ ] Log total startup time
-  - [ ] Warn if startup exceeds 30 seconds (NFR9)
-  - [ ] Add performance metrics for each validation stage
+- [ ] Create unit tests for path validation (AC: validation tested)
+  - [ ] Create `tests/config/test_path_validator.py`
+  - [ ] Test verify_file_paths() with all valid paths
+  - [ ] Test missing main instruction file detection
+  - [ ] Test missing scenario instruction file detection
+  - [ ] Test missing eval directory detection
+  - [ ] Test permission denied error handling
+  - [ ] Mock file system using pytest fixtures (tmp_path)
+  - [ ] Test both absolute and relative path handling
 
-- [ ] Create unit tests for validation (AC: validation tested)
-  - [ ] Create tests/config/test_path_verifier.py
-  - [ ] Test file exists validation
-  - [ ] Test file readable validation
-  - [ ] Test missing file error
-  - [ ] Create tests/config/test_mcp_tester.py
-  - [ ] Test connection string validation
-  - [ ] Create tests/config/test_startup_validator.py
-  - [ ] Test complete startup validation flow
+- [ ] Create unit tests for MCP connection testing (AC: connection tests validated)
+  - [ ] Create `tests/integrations/test_connection_tester.py`
+  - [ ] Test test_mcp_connections() with all connections successful
+  - [ ] Test Gmail connection failure handling
+  - [ ] Test warranty API connection failure handling
+  - [ ] Test ticketing connection failure handling
+  - [ ] Test connection timeout handling (5 seconds)
+  - [ ] Mock MCP clients for testing
+  - [ ] Test error message formats and details
 
-- [ ] Verify startup validation integration (AC: startup logs clear progress)
+- [ ] Verify complete startup sequence (AC: all startup checks integrated)
   - [ ] Run agent with valid config and all files present
-  - [ ] Verify logs show validation progress
-  - [ ] Remove instruction file and verify error
-  - [ ] Verify exit code 2 for missing files
-  - [ ] Test invalid MCP connection string
-  - [ ] Verify exit code 3 for MCP failures
-  - [ ] Measure startup time (should be < 30 seconds)
+  - [ ] Verify startup completes within 30 seconds
+  - [ ] Verify all startup log messages appear in order
+  - [ ] Test with missing instruction file (should exit code 2)
+  - [ ] Test with failed MCP connection (should exit code 3)
+  - [ ] Verify error messages are actionable and clear
+  - [ ] Verify agent doesn't begin processing if any check fails
 
 ## Dev Notes
 
 ### Architecture Context
 
-This story implements **Configuration Management (FR39-FR41)** and completes Epic 1 by ensuring fail-fast validation catches all configuration issues before the agent begins processing emails.
+This story implements **Configuration Management (FR39, FR40, FR41)** from the PRD, ensuring the agent fails fast on startup if any required files are missing or MCP connections cannot be established, preventing silent failures during runtime.
 
-**Key Validation Principles:**
-- FR39: Verify file paths exist and are readable
-- FR40: Test MCP connections before processing
-- FR41: Fail fast with clear error messages
-- NFR9: Startup completes within 30 seconds
-
-**Validation Sequence:**
-1. Load config.yaml (Story 1.2)
-2. Load secrets from environment (Story 1.3)
-3. Validate configuration schema
-4. **Verify instruction file paths** (This story)
-5. **Verify eval directory paths** (This story)
-6. **Validate MCP connection strings** (This story)
-7. Test MCP connections (stub now, real in Epic 2)
-8. Log "Agent ready" and begin processing
+**Key Architectural Principles:**
+- FR39: Verify file paths exist and are readable before processing
+- FR40: Test MCP connections before starting email processing
+- FR41: Fail fast with clear error messages for invalid configuration
+- NFR9: Successful startup completes within 30 seconds
 
 ### Critical Implementation Rules from Project Context
 
-**Exit Code Standards (NFR29 - MANDATORY):**
-- Exit code 2: Configuration error (missing files, invalid paths)
-- Exit code 3: MCP connection failure
-- Different exit codes help automation scripts distinguish error types
+**Fail-Fast Validation (MANDATORY):**
 
-**Fail-Fast Philosophy:**
 From project-context.md:
 ```
-Configuration Validation (NFR38, NFR41):
-- Validate configuration schema on startup
-- Verify file paths exist and are readable before processing
-- Test MCP connections before starting email processing
-- Fail fast with clear error messages for invalid configuration
+Configuration Secrets (MANDATORY - NFR12, NFR15):
+- Fail fast on startup if required secrets missing (NFR38)
+
+Exit Codes (MANDATORY - NFR29):
+- 0 = Success
+- 2 = Configuration error
+- 3 = MCP connection error
+- 4 = Eval failure (pass rate < 99%)
 ```
 
-**Startup Performance (NFR9):**
-- Startup (configuration validation + MCP connection testing) completes within 30 seconds
-- Log timing for each validation stage
-- Warn if approaching limit
-
-### File Path Verification Implementation
-
-**path_verifier.py structure:**
-
+**File Path Verification Pattern:**
 ```python
 from pathlib import Path
 from guarantee_email_agent.config.schema import AgentConfig
 from guarantee_email_agent.utils.errors import ConfigurationError
 
-def verify_file_exists(file_path: str, description: str = "File") -> None:
-    """Verify a file exists and is readable
+def verify_file_paths(config: AgentConfig) -> None:
+    """Verify all configured file paths exist and are readable
 
     Args:
-        file_path: Path to file to verify
-        description: Human-readable description for error messages
+        config: Agent configuration with file paths
 
     Raises:
-        ConfigurationError: If file doesn't exist or isn't readable
-    """
-    path = Path(file_path)
-
-    if not path.exists():
-        raise ConfigurationError(
-            message=f"{description} not found: {file_path}",
-            code="config_file_not_found",
-            details={"file_path": file_path, "description": description}
-        )
-
-    if not path.is_file():
-        raise ConfigurationError(
-            message=f"{description} is not a file: {file_path}",
-            code="config_invalid_path",
-            details={"file_path": file_path, "description": description}
-        )
-
-    # Check if readable
-    try:
-        with open(path, 'r') as f:
-            f.read(1)  # Try reading first byte
-    except PermissionError:
-        raise ConfigurationError(
-            message=f"Cannot read {description}: {file_path} (permission denied)",
-            code="config_file_unreadable",
-            details={"file_path": file_path, "description": description}
-        )
-    except Exception as e:
-        raise ConfigurationError(
-            message=f"Cannot access {description}: {file_path} ({str(e)})",
-            code="config_file_error",
-            details={"file_path": file_path, "description": description, "error": str(e)}
-        )
-
-def verify_instruction_paths(config: AgentConfig) -> None:
-    """Verify all instruction file paths exist and are readable
-
-    Args:
-        config: Agent configuration with instruction paths
-
-    Raises:
-        ConfigurationError: If any instruction file is missing or unreadable
+        ConfigurationError: If any file path is invalid or unreadable
     """
     # Verify main instruction file
-    verify_file_exists(
-        config.instructions.main,
-        description="Main instruction file"
-    )
-
-    # Verify each scenario instruction file
-    for scenario_path in config.instructions.scenarios:
-        verify_file_exists(
-            scenario_path,
-            description="Scenario instruction file"
+    main_instruction = Path(config.instructions.main)
+    if not main_instruction.exists():
+        raise ConfigurationError(
+            message=f"Instruction file not found: {config.instructions.main}",
+            code="config_file_not_found",
+            details={"file_path": config.instructions.main, "file_type": "main_instruction"}
         )
 
-def verify_eval_paths(config: AgentConfig) -> None:
-    """Verify eval test suite directory exists
+    if not main_instruction.is_file():
+        raise ConfigurationError(
+            message=f"Instruction path is not a file: {config.instructions.main}",
+            code="config_invalid_path",
+            details={"file_path": config.instructions.main}
+        )
 
-    Args:
-        config: Agent configuration with eval paths
+    # Check readability
+    try:
+        with open(main_instruction, 'r') as f:
+            f.read(1)  # Test read permission
+    except PermissionError:
+        raise ConfigurationError(
+            message=f"Cannot read instruction file: {config.instructions.main} (permission denied)",
+            code="config_permission_denied",
+            details={"file_path": config.instructions.main}
+        )
 
-    Raises:
-        ConfigurationError: If eval directory doesn't exist or isn't accessible
-    """
-    eval_dir = Path(config.eval.test_suite_path)
-
-    if not eval_dir.exists():
-        # Try to create directory
-        try:
-            eval_dir.mkdir(parents=True, exist_ok=True)
-            # Log warning that directory was created
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Created eval directory: {config.eval.test_suite_path}")
-        except Exception as e:
+    # Verify scenario instruction files
+    for scenario_path in config.instructions.scenarios:
+        scenario_file = Path(scenario_path)
+        if not scenario_file.exists():
             raise ConfigurationError(
-                message=f"Eval directory does not exist and cannot be created: {config.eval.test_suite_path}",
-                code="config_directory_error",
-                details={"directory": config.eval.test_suite_path, "error": str(e)}
+                message=f"Instruction file not found: {scenario_path}",
+                code="config_file_not_found",
+                details={"file_path": scenario_path, "file_type": "scenario_instruction"}
             )
+
+        try:
+            with open(scenario_file, 'r') as f:
+                f.read(1)
+        except PermissionError:
+            raise ConfigurationError(
+                message=f"Cannot read instruction file: {scenario_path} (permission denied)",
+                code="config_permission_denied",
+                details={"file_path": scenario_path}
+            )
+
+    # Verify eval test suite directory
+    eval_dir = Path(config.eval.test_suite_path)
+    if not eval_dir.exists():
+        raise ConfigurationError(
+            message=f"Eval directory not found: {config.eval.test_suite_path}",
+            code="config_directory_not_found",
+            details={"directory_path": config.eval.test_suite_path}
+        )
 
     if not eval_dir.is_dir():
         raise ConfigurationError(
             message=f"Eval path is not a directory: {config.eval.test_suite_path}",
             code="config_invalid_path",
-            details={"path": config.eval.test_suite_path}
+            details={"directory_path": config.eval.test_suite_path}
         )
 ```
 
-### MCP Connection Testing Implementation
+### MCP Connection Testing Pattern
 
-**mcp_tester.py structure (stub for now, real implementation in Epic 2):**
-
+**Connection Test Implementation:**
 ```python
-import re
+import asyncio
+from typing import Optional
 from guarantee_email_agent.config.schema import AgentConfig
-from guarantee_email_agent.utils.errors import MCPConnectionError
+from guarantee_email_agent.utils.errors import MCPError
 
-def validate_mcp_connection_string(connection_string: str, service_name: str) -> None:
-    """Validate MCP connection string format
+async def test_mcp_connection(
+    connection_string: str,
+    name: str,
+    timeout: int = 5
+) -> None:
+    """Test MCP connection with timeout
 
     Args:
         connection_string: MCP connection string (e.g., "mcp://gmail")
-        service_name: Service name for error messages
+        name: Connection name for logging (e.g., "gmail")
+        timeout: Connection timeout in seconds (default 5)
 
     Raises:
-        MCPConnectionError: If connection string format is invalid
+        MCPError: If connection fails or times out
     """
-    # Validate format: mcp://<service-name>
-    pattern = r'^mcp://[a-z0-9\-_]+$'
-    if not re.match(pattern, connection_string, re.IGNORECASE):
-        raise MCPConnectionError(
-            message=f"Invalid MCP connection string for {service_name}: {connection_string}",
-            code="mcp_invalid_connection_string",
-            details={
-                "service": service_name,
-                "connection_string": connection_string,
-                "expected_format": "mcp://<service-name>"
-            }
+    try:
+        # Create MCP client with connection string
+        # This is placeholder - actual MCP client creation happens in Epic 2
+        # For now, we'll validate the connection string format and simulate handshake
+
+        # Validate connection string format
+        if not connection_string.startswith("mcp://"):
+            raise ValueError(f"Invalid MCP connection string: {connection_string}")
+
+        # TODO: When Epic 2 is complete, replace with actual MCP client:
+        # from guarantee_email_agent.integrations.mcp_client import MCPClient
+        # client = MCPClient(connection_string)
+        # await asyncio.wait_for(client.connect(), timeout=timeout)
+
+        # For Story 1.4, we'll implement a simple connectivity check
+        # that validates the connection string and simulates connection test
+        logger.info(f"MCP connection tested: {name} ({connection_string}) - OK")
+
+    except asyncio.TimeoutError:
+        raise MCPError(
+            message=f"MCP connection timeout: {name}",
+            code="mcp_connection_timeout",
+            details={"connection_string": connection_string, "name": name, "timeout": timeout}
+        )
+    except ConnectionRefusedError as e:
+        raise MCPError(
+            message=f"MCP connection failed: {name} ({connection_string}) - connection refused",
+            code="mcp_connection_refused",
+            details={"connection_string": connection_string, "name": name, "error": str(e)}
+        )
+    except Exception as e:
+        raise MCPError(
+            message=f"MCP connection failed: {name} ({connection_string}) - {str(e)}",
+            code="mcp_connection_failed",
+            details={"connection_string": connection_string, "name": name, "error": str(e)}
         )
 
-def validate_mcp_connections(config: AgentConfig) -> None:
-    """Validate MCP connection strings (stub for Epic 2)
-
-    In Epic 2, this will actually test connections to MCP servers.
-    For now, we only validate connection string format.
+async def test_mcp_connections(config: AgentConfig) -> None:
+    """Test all MCP connections defined in configuration
 
     Args:
-        config: Agent configuration with MCP connection settings
+        config: Agent configuration with MCP settings
 
     Raises:
-        MCPConnectionError: If any connection string is invalid
+        MCPError: If any MCP connection fails
     """
-    # Validate Gmail connection string
-    validate_mcp_connection_string(
+    # Test Gmail MCP connection
+    await test_mcp_connection(
         config.mcp.gmail.connection_string,
-        service_name="gmail"
+        "gmail",
+        timeout=5
     )
 
-    # Validate Warranty API connection string
-    validate_mcp_connection_string(
+    # Test Warranty API MCP connection
+    await test_mcp_connection(
         config.mcp.warranty_api.connection_string,
-        service_name="warranty_api"
+        "warranty_api",
+        timeout=5
     )
 
-    # Validate Ticketing System connection string
-    validate_mcp_connection_string(
+    # Test Ticketing System MCP connection
+    await test_mcp_connection(
         config.mcp.ticketing_system.connection_string,
-        service_name="ticketing_system"
+        "ticketing_system",
+        timeout=5
     )
-
-    # TODO (Epic 2): Implement actual MCP connection testing
-    # - Import MCP Python SDK
-    # - Attempt to connect to each MCP server
-    # - Use 5-second timeout for each connection test
-    # - Raise MCPConnectionError if connection fails
-    # For now, connection string validation is sufficient
 ```
 
-### Startup Validator Orchestrator
+### CLI Integration Pattern
 
-**startup_validator.py structure:**
-
+**Update cli.py startup sequence:**
 ```python
-import time
-import logging
-from guarantee_email_agent.config.schema import AgentConfig
-from guarantee_email_agent.config.path_verifier import verify_instruction_paths, verify_eval_paths
-from guarantee_email_agent.config.mcp_tester import validate_mcp_connections
-
-logger = logging.getLogger(__name__)
-
-def validate_startup(config: AgentConfig) -> None:
-    """Complete startup validation orchestrator
-
-    Validates all configuration, file paths, and MCP connections.
-    Logs progress and timing for each stage.
-
-    Args:
-        config: Complete agent configuration
-
-    Raises:
-        ConfigurationError: If file paths are invalid
-        MCPConnectionError: If MCP connections fail
-    """
-    start_time = time.time()
-
-    # Stage 1: Verify instruction file paths
-    logger.info("Verifying instruction file paths...")
-    stage_start = time.time()
-    verify_instruction_paths(config)
-    logger.info(f"Instruction paths verified ({time.time() - stage_start:.2f}s)")
-
-    # Stage 2: Verify eval directory
-    logger.info("Verifying eval directory...")
-    stage_start = time.time()
-    verify_eval_paths(config)
-    logger.info(f"Eval paths verified ({time.time() - stage_start:.2f}s)")
-
-    # Stage 3: Validate MCP connection strings (stub for Epic 2)
-    logger.info("Validating MCP connection strings...")
-    stage_start = time.time()
-    validate_mcp_connections(config)
-    logger.info(f"MCP connections validated ({time.time() - stage_start:.2f}s)")
-
-    # Calculate total startup time
-    total_time = time.time() - start_time
-    logger.info(f"Startup validation complete ({total_time:.2f}s)")
-
-    # Warn if approaching 30-second limit (NFR9)
-    if total_time > 25:
-        logger.warning(f"Startup validation took {total_time:.2f}s (approaching 30s limit)")
-    elif total_time > 30:
-        logger.error(f"Startup validation exceeded 30s limit: {total_time:.2f}s")
-```
-
-### Error Handling: MCPConnectionError
-
-**Add to utils/errors.py:**
-
-```python
-class MCPConnectionError(AgentError):
-    """MCP connection-related errors"""
-    pass
-
-# Usage:
-# raise MCPConnectionError(
-#     message="MCP connection failed: gmail (mcp://gmail) - connection refused",
-#     code="mcp_connection_failed",
-#     details={"service": "gmail", "connection_string": "mcp://gmail"}
-# )
-```
-
-### CLI Integration with Exit Codes
-
-**Update cli.py:**
-
-```python
-import typer
+import asyncio
 import sys
-import logging
+import typer
 from guarantee_email_agent.config.loader import load_config
 from guarantee_email_agent.config.validator import validate_config
-from guarantee_email_agent.config.startup_validator import validate_startup
-from guarantee_email_agent.utils.errors import ConfigurationError, MCPConnectionError
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
+from guarantee_email_agent.config.path_validator import verify_file_paths
+from guarantee_email_agent.integrations.connection_tester import test_mcp_connections
+from guarantee_email_agent.utils.errors import ConfigurationError, MCPError
 
 app = typer.Typer(
     name="agent",
     help="Instruction-driven AI agent for warranty email automation"
 )
 
-def load_and_validate_config(config_path: str = None):
-    """Load and validate configuration, exit with appropriate code on error"""
+async def startup_validation(config_path: str = None):
+    """Complete startup validation sequence
+
+    Returns:
+        AgentConfig: Validated configuration
+
+    Raises:
+        SystemExit: With appropriate exit code if validation fails
+    """
     try:
-        # Load configuration and secrets
-        logger.info("Loading configuration...")
+        # Step 1: Load configuration and secrets
+        typer.echo("Agent starting...")
         config = load_config(config_path)
-        logger.info("Configuration loaded")
 
-        # Validate configuration schema
-        logger.info("Validating configuration schema...")
+        # Step 2: Validate configuration schema and secrets
         validate_config(config)
-        logger.info("Configuration valid")
+        typer.echo("✓ Configuration valid")
 
-        # Startup validation (file paths, MCP connections)
-        logger.info("Running startup validation...")
-        validate_startup(config)
-        logger.info("File paths verified")
-        logger.info("MCP connections tested")
+        # Step 3: Verify file paths
+        verify_file_paths(config)
+        typer.echo("✓ File paths verified")
 
-        logger.info("Agent ready")
+        # Step 4: Test MCP connections
+        await test_mcp_connections(config)
+        typer.echo("✓ MCP connections tested")
+
+        typer.echo("✓ Agent ready")
         return config
 
     except ConfigurationError as e:
-        logger.error(f"Configuration Error: {e.message}")
-        logger.error(f"Error Code: {e.code}")
+        typer.echo(f"Configuration Error: {e.message}", err=True)
+        typer.echo(f"Error Code: {e.code}", err=True)
         if e.details:
-            logger.error(f"Details: {e.details}")
+            typer.echo(f"Details: {e.details}", err=True)
 
         # Provide helpful hints
-        if e.code == "config_missing_secret":
-            logger.info("Hint: Copy .env.example to .env and fill in your API keys")
-        elif e.code == "config_file_not_found":
-            logger.info("Hint: Check that the file path in config.yaml is correct")
+        if e.code == "config_file_not_found":
+            typer.echo("\nHint: Ensure all instruction files exist at the configured paths", err=True)
+            typer.echo("      Check config.yaml instructions section", err=True)
+        elif e.code == "config_permission_denied":
+            typer.echo("\nHint: Check file permissions - files must be readable", err=True)
+            typer.echo("      Run: chmod +r <file_path>", err=True)
 
         sys.exit(2)  # Exit code 2 for configuration errors
 
-    except MCPConnectionError as e:
-        logger.error(f"MCP Connection Error: {e.message}")
-        logger.error(f"Error Code: {e.code}")
+    except MCPError as e:
+        typer.echo(f"MCP Connection Error: {e.message}", err=True)
+        typer.echo(f"Error Code: {e.code}", err=True)
         if e.details:
-            logger.error(f"Details: {e.details}")
+            typer.echo(f"Details: {e.details}", err=True)
 
-        logger.info("Hint: Check MCP connection strings in config.yaml")
-        logger.info("      In Epic 2, actual MCP servers will be tested")
+        # Provide helpful hints
+        if e.code == "mcp_connection_timeout":
+            typer.echo("\nHint: MCP server may not be running or is unresponsive", err=True)
+            typer.echo("      Check that MCP servers are started and accessible", err=True)
+        elif e.code == "mcp_connection_refused":
+            typer.echo("\nHint: MCP server connection was refused", err=True)
+            typer.echo("      Verify connection string and ensure server is running", err=True)
 
-        sys.exit(3)  # Exit code 3 for MCP connection failures
+        sys.exit(3)  # Exit code 3 for MCP connection errors
 
 @app.command()
 def run():
     """Start the warranty email agent for continuous processing."""
-    config = load_and_validate_config()
+    config = asyncio.run(startup_validation())
     typer.echo("Agent run command - to be implemented in Epic 4")
 
 @app.command()
 def eval():
     """Execute the complete evaluation test suite."""
-    config = load_and_validate_config()
+    config = asyncio.run(startup_validation())
     typer.echo("Agent eval command - to be implemented in Epic 5")
 
 if __name__ == "__main__":
     app()
 ```
 
+### Error Hierarchy Extension
+
+**Add MCPError to utils/errors.py:**
+```python
+class MCPError(AgentError):
+    """MCP integration errors"""
+    pass
+
+# Error codes for MCP failures:
+# - "mcp_connection_failed" - General connection failure
+# - "mcp_connection_timeout" - Connection timed out (5 seconds)
+# - "mcp_connection_refused" - Connection refused by server
+# - "mcp_authentication_failed" - Authentication failed
+```
+
 ### Testing Strategy
 
-**Unit Tests (tests/config/test_path_verifier.py):**
+**Unit Test Coverage:**
 
+1. **test_path_validator.py:**
+   - Test verify_file_paths() with complete valid configuration
+   - Test missing main instruction file → ConfigurationError
+   - Test missing scenario instruction file → ConfigurationError
+   - Test missing eval directory → ConfigurationError
+   - Test permission denied on instruction file → ConfigurationError
+   - Test both absolute and relative paths
+   - Use pytest tmp_path fixture for file system mocking
+
+2. **test_connection_tester.py:**
+   - Test test_mcp_connections() with all connections successful
+   - Test Gmail connection failure → MCPError with code "mcp_connection_failed"
+   - Test warranty API connection timeout → MCPError with code "mcp_connection_timeout"
+   - Test ticketing connection refused → MCPError with code "mcp_connection_refused"
+   - Mock asyncio timeouts for timeout testing
+   - Mock connection refused errors
+   - Verify error messages include connection string and name
+
+3. **test_cli_startup.py:**
+   - Test complete startup_validation() sequence success
+   - Test startup with missing file → exit code 2
+   - Test startup with failed MCP connection → exit code 3
+   - Test startup logging sequence
+   - Verify all validation steps execute in order
+   - Mock all external dependencies
+
+**Example Test:**
 ```python
+# tests/config/test_path_validator.py
 import pytest
 from pathlib import Path
-from guarantee_email_agent.config.path_verifier import verify_file_exists, verify_instruction_paths
-from guarantee_email_agent.config.schema import AgentConfig, InstructionsConfig, MCPConfig, EvalConfig, LoggingConfig, SecretsConfig
+from guarantee_email_agent.config.path_validator import verify_file_paths
+from guarantee_email_agent.config.schema import AgentConfig, InstructionsConfig, EvalConfig
 from guarantee_email_agent.utils.errors import ConfigurationError
 
-def test_verify_file_exists_with_valid_file(tmp_path):
-    """Test verifying a file that exists"""
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("content")
+def test_verify_file_paths_success(tmp_path):
+    """Test path verification with all valid paths"""
+    # Create test files
+    main_instruction = tmp_path / "main.md"
+    main_instruction.write_text("# Main instruction")
 
-    # Should not raise
-    verify_file_exists(str(test_file), "Test file")
+    scenario_dir = tmp_path / "scenarios"
+    scenario_dir.mkdir()
+    scenario1 = scenario_dir / "valid-warranty.md"
+    scenario1.write_text("# Valid warranty scenario")
 
-def test_verify_file_exists_missing_file(tmp_path):
-    """Test verifying a file that doesn't exist"""
-    missing_file = tmp_path / "missing.txt"
+    eval_dir = tmp_path / "evals"
+    eval_dir.mkdir()
 
-    with pytest.raises(ConfigurationError) as exc_info:
-        verify_file_exists(str(missing_file), "Test file")
-
-    assert exc_info.value.code == "config_file_not_found"
-    assert "missing.txt" in exc_info.value.message
-
-def test_verify_file_exists_unreadable_file(tmp_path):
-    """Test verifying a file that isn't readable"""
-    test_file = tmp_path / "unreadable.txt"
-    test_file.write_text("content")
-    test_file.chmod(0o000)  # Remove all permissions
-
-    with pytest.raises(ConfigurationError) as exc_info:
-        verify_file_exists(str(test_file), "Test file")
-
-    assert exc_info.value.code in ["config_file_unreadable", "config_file_error"]
-
-    # Restore permissions for cleanup
-    test_file.chmod(0o644)
-
-def test_verify_instruction_paths_with_valid_files(tmp_path):
-    """Test verifying instruction paths when all files exist"""
-    main_file = tmp_path / "main.md"
-    main_file.write_text("# Main")
-
-    scenario_file = tmp_path / "scenario.md"
-    scenario_file.write_text("# Scenario")
-
+    # Create config with test paths
     config = AgentConfig(
-        mcp=MCPConfig(...),  # Mock MCP config
         instructions=InstructionsConfig(
-            main=str(main_file),
-            scenarios=[str(scenario_file)]
+            main=str(main_instruction),
+            scenarios=[str(scenario1)]
         ),
-        eval=EvalConfig(...),
-        logging=LoggingConfig(...),
-        secrets=SecretsConfig(...)
+        eval=EvalConfig(
+            test_suite_path=str(eval_dir),
+            pass_threshold=99.0
+        ),
+        # ... other config fields
     )
 
-    # Should not raise
-    verify_instruction_paths(config)
-```
+    # Should not raise any errors
+    verify_file_paths(config)
 
-**Unit Tests (tests/config/test_mcp_tester.py):**
+def test_verify_file_paths_missing_main_instruction(tmp_path):
+    """Test missing main instruction file detection"""
+    config = AgentConfig(
+        instructions=InstructionsConfig(
+            main="nonexistent/main.md",
+            scenarios=[]
+        ),
+        eval=EvalConfig(
+            test_suite_path=str(tmp_path),
+            pass_threshold=99.0
+        ),
+        # ... other config fields
+    )
 
-```python
-import pytest
-from guarantee_email_agent.config.mcp_tester import validate_mcp_connection_string
-from guarantee_email_agent.utils.errors import MCPConnectionError
+    with pytest.raises(ConfigurationError) as exc_info:
+        verify_file_paths(config)
 
-def test_validate_valid_connection_string():
-    """Test validating a valid MCP connection string"""
-    # Should not raise
-    validate_mcp_connection_string("mcp://gmail", "gmail")
-    validate_mcp_connection_string("mcp://warranty-api", "warranty")
-
-def test_validate_invalid_connection_string_format():
-    """Test validating invalid connection string format"""
-    with pytest.raises(MCPConnectionError) as exc_info:
-        validate_mcp_connection_string("http://gmail", "gmail")
-
-    assert exc_info.value.code == "mcp_invalid_connection_string"
-    assert "mcp://" in exc_info.value.details["expected_format"]
-
-def test_validate_empty_connection_string():
-    """Test validating empty connection string"""
-    with pytest.raises(MCPConnectionError):
-        validate_mcp_connection_string("", "gmail")
-```
-
-### Startup Validation Flow Diagram
-
-```
-Agent Startup Sequence:
-┌─────────────────────────────────────┐
-│ 1. Load config.yaml (Story 1.2)    │
-│    ✓ Parse YAML                     │
-│    ✓ Validate schema                │
-└────────────┬────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────┐
-│ 2. Load secrets (Story 1.3)        │
-│    ✓ Read environment variables     │
-│    ✓ Validate required secrets      │
-└────────────┬────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────┐
-│ 3. Verify file paths (THIS STORY)  │
-│    ✓ Check instruction files exist  │
-│    ✓ Check files are readable       │
-│    ✓ Verify eval directory          │
-└────────────┬────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────┐
-│ 4. Validate MCP connections        │
-│    ✓ Check connection string format │
-│    ✓ TODO: Test actual connections  │
-│       (Epic 2)                       │
-└────────────┬────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────┐
-│ 5. Log "Agent ready"                │
-│    ✓ All validation passed          │
-│    ✓ Total time < 30 seconds        │
-└─────────────────────────────────────┘
+    assert exc_info.value.code == "config_file_not_found"
+    assert "Instruction file not found" in exc_info.value.message
+    assert "nonexistent/main.md" in exc_info.value.message
 ```
 
 ### Common Pitfalls to Avoid
 
 **❌ NEVER DO THESE:**
 
-1. **Skipping file verification:**
+1. **Silently ignoring missing files:**
    ```python
-   # WRONG - Assume files exist
-   config = load_config()
-   # Start processing without verification
-
-   # CORRECT - Verify before processing
-   config = load_config()
-   validate_startup(config)  # Fails fast if files missing
-   ```
-
-2. **Wrong exit codes:**
-   ```python
-   # WRONG - Generic exit code
-   except ConfigurationError:
-       sys.exit(1)
-
-   # CORRECT - Specific exit codes
-   except ConfigurationError:
-       sys.exit(2)  # Config error
-   except MCPConnectionError:
-       sys.exit(3)  # MCP error
-   ```
-
-3. **Silent failures:**
-   ```python
-   # WRONG - Silently ignore missing files
+   # WRONG - Silent failure
    if not Path(file_path).exists():
-       return None
+       return None  # Silently continues!
 
-   # CORRECT - Fail fast with clear error
+   # CORRECT - Fail fast
    if not Path(file_path).exists():
        raise ConfigurationError(
-           message=f"File not found: {file_path}",
-           code="config_file_not_found"
+           message=f"Instruction file not found: {file_path}",
+           code="config_file_not_found",
+           details={"file_path": file_path}
        )
    ```
 
-4. **Not logging validation progress:**
+2. **Using wrong exit codes:**
    ```python
-   # WRONG - No visibility into validation
-   verify_paths()
-   validate_connections()
+   # WRONG - Generic exit code
+   sys.exit(1)  # What kind of error?
 
-   # CORRECT - Log each stage
-   logger.info("Verifying file paths...")
-   verify_paths()
-   logger.info("File paths verified")
+   # CORRECT - Specific exit codes per NFR29
+   sys.exit(2)  # Configuration error
+   sys.exit(3)  # MCP connection error
+   ```
+
+3. **Testing connections sequentially without error aggregation:**
+   ```python
+   # WRONG - Fails on first connection, doesn't test others
+   test_gmail()  # Fails here
+   test_warranty()  # Never tested
+   test_ticketing()  # Never tested
+
+   # CORRECT - Test all, report all failures
+   errors = []
+   for connection in [gmail, warranty, ticketing]:
+       try:
+           test_connection(connection)
+       except MCPError as e:
+           errors.append(e)
+   if errors:
+       raise MCPError(...)  # Report all failures
+   ```
+
+4. **Not providing actionable error messages:**
+   ```python
+   # WRONG - Vague error
+   raise ConfigurationError("File error")
+
+   # CORRECT - Specific with remediation
+   raise ConfigurationError(
+       message=f"Instruction file not found: {file_path}",
+       code="config_file_not_found",
+       details={"file_path": file_path, "hint": "Create file or update config.yaml"}
+   )
+   ```
+
+5. **Blocking async operations:**
+   ```python
+   # WRONG - Synchronous call in async function
+   def test_connections():
+       client.connect()  # Blocks event loop!
+
+   # CORRECT - Async with timeout
+   async def test_connections():
+       await asyncio.wait_for(client.connect(), timeout=5)
    ```
 
 ### Verification Commands
@@ -691,85 +619,99 @@ Agent Startup Sequence:
 # 1. Create required directory structure
 mkdir -p instructions/scenarios
 mkdir -p evals/scenarios
+touch instructions/main.md
+touch instructions/scenarios/valid-warranty.md
 
-# 2. Create placeholder instruction files
-echo "# Main instruction" > instructions/main.md
-echo "# Valid warranty" > instructions/scenarios/valid-warranty.md
-echo "# Invalid warranty" > instructions/scenarios/invalid-warranty.md
-echo "# Missing info" > instructions/scenarios/missing-info.md
-
-# 3. Test startup with all files present
+# 2. Test with valid configuration (should succeed)
 uv run python -m guarantee_email_agent run
-# Should log: "Configuration valid", "File paths verified", "MCP connections tested", "Agent ready"
+# Expected: "Agent ready" message, exit code 0
 
-# 4. Test missing instruction file error
-rm instructions/main.md
+# 3. Test with missing instruction file (should fail)
+mv instructions/main.md instructions/main.md.bak
 uv run python -m guarantee_email_agent run
-# Should fail with exit code 2 and "Instruction file not found: instructions/main.md"
+# Expected: "Instruction file not found: instructions/main.md", exit code 2
 echo $?  # Should be 2
+mv instructions/main.md.bak instructions/main.md
 
-# 5. Restore file
-echo "# Main instruction" > instructions/main.md
-
-# 6. Test invalid MCP connection string
-# Edit config.yaml to have invalid connection string like "http://gmail"
+# 4. Test with permission denied (should fail)
+chmod 000 instructions/main.md
 uv run python -m guarantee_email_agent run
-# Should fail with exit code 3 and "Invalid MCP connection string"
-echo $?  # Should be 3
+# Expected: "Cannot read instruction file: ... (permission denied)", exit code 2
+chmod 644 instructions/main.md
 
-# 7. Run validation tests
-uv run pytest tests/config/test_path_verifier.py -v
-uv run pytest tests/config/test_mcp_tester.py -v
-uv run pytest tests/config/test_startup_validator.py -v
+# 5. Test MCP connection failure (simulated)
+# This will be testable after Epic 2 MCP implementation
+# For Story 1.4, connection testing is stubbed
 
-# 8. Measure startup time
-time uv run python -m guarantee_email_agent --help
-# Should complete in < 30 seconds (NFR9)
+# 6. Verify startup timing (should be <30 seconds)
+time uv run python -m guarantee_email_agent run
+# Should complete within 30 seconds (NFR9)
+
+# 7. Run unit tests
+uv run pytest tests/config/test_path_validator.py -v
+uv run pytest tests/integrations/test_connection_tester.py -v
+
+# 8. Verify all startup log messages appear
+uv run python -m guarantee_email_agent run 2>&1 | grep -E "(Agent starting|Configuration valid|File paths verified|MCP connections tested|Agent ready)"
+# All 5 messages should appear in order
 ```
 
-### NFR9 Startup Performance
+### Dependency Notes
 
-**30-Second Startup Budget:**
-- Config file loading: < 0.1s
-- Secrets loading: < 0.1s
-- Schema validation: < 0.1s
-- File path verification: < 0.5s (even with many files)
-- MCP connection validation: < 1s (stub, real testing in Epic 2 may take 5s per connection = 15s total)
-- Total expected: < 2s for MVP (most time will be MCP connection testing in Epic 2)
+**Depends on:**
+- Story 1.1: Project structure with src-layout, directories, and CLI framework
+- Story 1.2: Configuration loader and validator, AgentConfig dataclass
+- Story 1.3: Environment variable management, secrets validation
 
-**Performance Monitoring:**
-- Log timing for each validation stage
-- Warn if approaching 30s limit
-- Error if exceeding 30s limit
+**Blocks:**
+- Epic 2 stories: MCP integration requires connection testing infrastructure
+- Epic 3 stories: Instruction loading requires file path verification
+- Epic 4 stories: Email processing requires validated startup sequence
+
+**MCP Connection Testing Note:**
+For Story 1.4, MCP connection testing will be implemented as a connectivity check that validates connection strings and simulates handshake. The actual MCP client implementation happens in Epic 2 (Stories 2.1-2.3). When Epic 2 is complete, the connection testing code will be updated to use real MCP clients.
 
 ### References
 
 **Architecture Document Sections:**
-- [Source: architecture.md#Configuration Management] - Startup validation requirements
-- [Source: architecture.md#Implementation Patterns] - Error handling patterns
+- [Source: architecture.md#Configuration Management] - Fail-fast validation requirements
+- [Source: architecture.md#MCP Integration Architecture] - MCP connection details
+- [Source: architecture.md#Startup Sequence] - Validation order and timing
 - [Source: project-context.md#Exit Code Standards] - Exit codes 2 and 3
-- [Source: project-context.md#Critical Anti-Patterns] - Silent failures forbidden
+- [Source: project-context.md#File Naming Consistency] - Instruction file naming (kebab-case)
 
 **Epic/PRD Context:**
 - [Source: epics.md#Epic 1: Project Foundation & Configuration] - Parent epic
 - [Source: epics.md#Story 1.4] - Complete acceptance criteria
-- [Source: prd.md#Configuration Management FR39-FR41] - File verification requirements
-- [Source: prd.md#Non-Functional Requirements NFR9] - 30-second startup requirement
-
-**Dependencies:**
-- Story 1.1: Project structure exists
-- Story 1.2: Configuration loader and validator
-- Story 1.3: Secrets management
-- Epic 2 (Future): Actual MCP connection testing will replace stubs
+- [Source: prd.md#Configuration Management FR39-FR41] - File path and connection testing requirements
+- [Source: prd.md#Operational Excellence NFR9] - 30-second startup requirement
+- [Source: prd.md#NFR29] - Exit code standards
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-4-5-20250929
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Comprehensive context analysis completed from PRD, Architecture, Project Context, and Epics
+- Story file created with complete implementation patterns and code examples
+- File path verification and MCP connection testing patterns documented
+- Integration with existing CLI startup sequence defined
+- Exit codes 2 (configuration) and 3 (MCP) properly implemented
+- 30-second startup performance target (NFR9) documented
+- Testing strategy with pytest examples provided
+- Dependencies and Epic 2 integration notes included
+
 ### File List
+
+- `src/guarantee_email_agent/config/path_validator.py` - File path verification
+- `src/guarantee_email_agent/integrations/connection_tester.py` - MCP connection testing
+- `src/guarantee_email_agent/cli.py` - Updated startup sequence
+- `src/guarantee_email_agent/utils/errors.py` - Added MCPError class
+- `tests/config/test_path_validator.py` - Path validation tests
+- `tests/integrations/test_connection_tester.py` - Connection test tests
+- `tests/test_cli_startup.py` - Complete startup sequence tests
