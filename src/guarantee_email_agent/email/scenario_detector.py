@@ -192,7 +192,7 @@ class ScenarioDetector:
             response = await asyncio.wait_for(
                 asyncio.to_thread(
                     self.client.messages.create,
-                    model="claude-3-5-sonnet-20241022",  # Pinned version
+                    model="claude-sonnet-4-5",  # Current pinned model per architecture
                     max_tokens=50,
                     temperature=0,  # Maximum determinism per NFR1
                     system=system_message,

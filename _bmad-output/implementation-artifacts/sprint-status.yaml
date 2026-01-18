@@ -30,8 +30,8 @@ development_status:
   epic-3: in-progress
   3-1-instruction-parser-and-main-orchestration-logic: done
   3-2-scenario-routing-and-llm-response-generation: done
-  3-3-email-parser-and-serial-number-extraction: review
-  3-4-end-to-end-email-processing-pipeline: review
+  3-3-email-parser-and-serial-number-extraction: done
+  3-4-end-to-end-email-processing-pipeline: done
   3-5-cli-agent-run-command-and-graceful-shutdown: review
   3-6-structured-logging-and-graceful-degradation: ready-for-dev
   epic-3-retrospective: backlog
@@ -55,11 +55,11 @@ project_info:
 
 # Sprint Metrics (auto-calculated)
 sprint_metrics:
-  stories_ready: 12  # 1.4, 2.1, 3.3-3.6, 4.1-4.4
-  stories_in_review: 2  # 1.2, 1.3
-  stories_done: 2  # 1.1, 3.1
-  current_epic: epic-4
-  completion_percentage: 80  # 12 of 15 stories ready or complete, 2 done!
+  stories_ready: 9  # 1.4, 2.1, 3.6, 4.1-4.4
+  stories_in_review: 3  # 1.2, 1.3, 3.5
+  stories_done: 4  # 1.1, 3.1, 3.2, 3.3, 3.4
+  current_epic: epic-3
+  completion_percentage: 73  # 11 of 15 stories complete or ready (4 done!)
 
 # Optimization Mapping (for reference)
 # Shows how old stories map to new optimized stories

@@ -82,8 +82,9 @@ class EmailParser:
             )
 
             # Log full content at DEBUG level ONLY (NFR14)
+            # IMPORTANT: Email body ONLY in extra dict, NOT in message string
             logger.debug(
-                f"Email content: {email.body[:100]}...",  # Truncated in message
+                "Email full content available in extra dict (NFR14 compliance)",
                 extra={
                     "subject": email.subject,
                     "from": email.from_address,
@@ -113,22 +114,40 @@ class EmailParser:
     def _html_to_text(self, html: str) -> str:
         """Convert HTML email body to plain text.
 
-        Simple HTML stripping - removes tags and normalizes whitespace.
-        For production, consider using html2text library for better conversion.
+        Handles HTML tags, entities, and special elements properly.
+        Strips <style>, <script>, and HTML comments completely.
 
         Args:
             html: HTML content
 
         Returns:
-            Plain text version with tags stripped
+            Plain text version with proper entity decoding
         """
-        # Strip HTML tags using regex
-        text = re.sub('<[^<]+?>', '', html)
+        # Remove style and script tags and their content
+        text = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
 
-        # Normalize whitespace
+        # Remove HTML comments
+        text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+
+        # Strip remaining HTML tags
+        text = re.sub(r'<[^<]+?>', '', text)
+
+        # Decode common HTML entities
+        entity_map = {
+            '&nbsp;': ' ',
+            '&lt;': '<',
+            '&gt;': '>',
+            '&amp;': '&',
+            '&quot;': '"',
+            '&#39;': "'",
+        }
+        for entity, char in entity_map.items():
+            text = text.replace(entity, char)
+
+        # Normalize whitespace (preserve paragraph breaks)
+        text = re.sub(r'[ \t]+', ' ', text)  # Collapse horizontal whitespace
+        text = re.sub(r'\n\s*\n', '\n\n', text)  # Preserve paragraph breaks
         text = text.strip()
-
-        # Replace multiple spaces/newlines with single space
-        text = re.sub(r'\s+', ' ', text)
 
         return text
