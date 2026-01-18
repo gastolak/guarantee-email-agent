@@ -21,3 +21,8 @@ class AgentError(Exception):
 class ConfigurationError(AgentError):
     """Configuration-related errors."""
     pass
+
+
+class MCPConnectionError(AgentError):
+    """MCP connection-related errors."""
+    pass
