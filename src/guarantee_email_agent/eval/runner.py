@@ -1,15 +1,24 @@
 """Eval runner for executing test cases and validating results."""
 
+import asyncio
 import logging
 import time
 from typing import List, Tuple, Dict, Any
 
+from guarantee_email_agent.config.schema import AgentConfig
+from guarantee_email_agent.config import load_config
+from guarantee_email_agent.email.parser import EmailParser
+from guarantee_email_agent.email.processor import EmailProcessor
+from guarantee_email_agent.email.scenario_detector import ScenarioDetector
+from guarantee_email_agent.email.serial_extractor import SerialNumberExtractor
 from guarantee_email_agent.eval.models import (
     EvalTestCase,
     EvalResult,
     EvalExpectedOutput,
 )
 from guarantee_email_agent.eval.mocks import create_mock_clients
+from guarantee_email_agent.instructions.loader import load_instruction_cached
+from guarantee_email_agent.llm.response_generator import ResponseGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +58,8 @@ class EvalRunner:
             # Create mock clients
             mocks = create_mock_clients(test_case)
 
-            # TODO: Create processor with mocked clients and execute
-            # For now, create a mock result based on test case
-            actual_output = self._simulate_processing(test_case, mocks)
+            # Process email with real EmailProcessor using mocked clients
+            actual_output = await self._process_with_mocks(test_case, mocks)
 
             # Measure processing time
             processing_time_ms = int((time.time() - start_time) * 1000)
@@ -81,22 +89,100 @@ class EvalRunner:
                 processing_time_ms=int((time.time() - start_time) * 1000),
             )
 
-    def _simulate_processing(
+    async def _process_with_mocks(
         self, test_case: EvalTestCase, mocks: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Simulate email processing for testing eval framework.
+        """Process email using real EmailProcessor with mocked clients.
 
-        This is a temporary placeholder until EmailProcessor integration is complete.
+        Args:
+            test_case: Eval test case with input email
+            mocks: Mock clients (gmail, warranty, ticketing)
+
+        Returns:
+            Processing result dictionary
         """
-        # Mock a successful processing
-        actual_output = {
-            "email_sent": False,
-            "response_body": "",
-            "ticket_created": False,
-            "scenario_used": test_case.expected_output.scenario_instruction_used,
-            "processing_time_ms": 1000,
+        # Load configuration (use default config.yaml)
+        try:
+            config = load_config("config.yaml")
+        except Exception as e:
+            logger.warning(f"Could not load config.yaml, using minimal config: {e}")
+            # Create minimal config for eval
+            config = self._create_minimal_config()
+
+        # Load main instruction
+        main_instruction = load_instruction_cached(config.instructions.main)
+
+        # Create processor components with mocks
+        parser = EmailParser()
+        extractor = SerialNumberExtractor(config, main_instruction.body)
+        detector = ScenarioDetector(config, main_instruction.body)
+        response_generator = ResponseGenerator(config, main_instruction)
+
+        # Create processor with mocked clients
+        processor = EmailProcessor(
+            config=config,
+            parser=parser,
+            extractor=extractor,
+            detector=detector,
+            gmail_client=mocks["gmail"],
+            warranty_client=mocks["warranty"],
+            ticketing_client=mocks["ticketing"],
+            response_generator=response_generator,
+        )
+
+        # Build raw email from test case
+        # Remove 'Z' suffix from ISO format as Python's fromisoformat doesn't handle it
+        received_time = test_case.input.email.received.replace('Z', '+00:00')
+
+        raw_email = {
+            "subject": test_case.input.email.subject,
+            "body": test_case.input.email.body,
+            "from": test_case.input.email.from_address,
+            "received": received_time,
         }
-        return actual_output
+
+        # Process email
+        result = await processor.process_email(raw_email)
+
+        # Get response body from mock gmail client (last sent email)
+        response_body = ""
+        if mocks["gmail"].sent_emails:
+            response_body = mocks["gmail"].sent_emails[-1].get("body", "")
+
+        # Return simplified dict for validation
+        return {
+            "email_sent": result.success and result.response_sent,
+            "response_body": response_body,
+            "ticket_created": result.ticket_id is not None,
+            "scenario_used": result.scenario_used or "unknown",
+            "processing_time_ms": result.processing_time_ms,
+        }
+
+    def _create_minimal_config(self) -> AgentConfig:
+        """Create minimal config for eval when config.yaml not available."""
+        from guarantee_email_agent.config.schema import (
+            AgentRuntimeConfig,
+            InstructionConfig,
+            LoggingConfig,
+            MCPConfig,
+            MCPServerConfig,
+            SecretsConfig,
+        )
+
+        return AgentConfig(
+            agent=AgentRuntimeConfig(polling_interval_seconds=60),
+            instructions=InstructionConfig(
+                main="instructions/main.md",
+                scenarios_dir="instructions/scenarios",
+            ),
+            logging=LoggingConfig(level="INFO"),
+            mcp=MCPConfig(
+                gmail=MCPServerConfig(connection_string="stdio://mock"),
+                warranty_api=MCPServerConfig(connection_string="stdio://mock"),
+                ticketing_system=MCPServerConfig(connection_string="stdio://mock"),
+            ),
+            secrets=SecretsConfig(anthropic_api_key="mock-key-for-eval"),
+        )
 
     def validate_output(
         self,
