@@ -71,3 +71,8 @@ class LLMConnectionError(TransientError):
 class LLMAuthenticationError(LLMError):
     """Auth error - non-transient, do NOT retry."""
     pass
+
+
+class EmailParseError(AgentError):
+    """Email parsing failures."""
+    pass
