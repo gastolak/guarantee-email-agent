@@ -41,9 +41,9 @@ def create_email_processor(config: AgentConfig) -> EmailProcessor:
     detector = ScenarioDetector(config, main_instruction.body)
 
     # Initialize MCP clients
-    gmail_client = GmailMCPClient(config.mcp.gmail_connection)
-    warranty_client = WarrantyMCPClient(config.mcp.warranty_connection)
-    ticketing_client = TicketingMCPClient(config.mcp.ticketing_connection)
+    gmail_client = GmailMCPClient(config.mcp.gmail)
+    warranty_client = WarrantyMCPClient(config.mcp.warranty_api)
+    ticketing_client = TicketingMCPClient(config.mcp.ticketing_system)
 
     # Initialize response generator
     response_generator = ResponseGenerator(config, main_instruction)

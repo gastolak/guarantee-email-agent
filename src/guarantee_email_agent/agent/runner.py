@@ -93,9 +93,8 @@ class AgentRunner:
         """
         try:
             logger.debug("Checking inbox...")
-            # Use Gmail MCP client to fetch unread emails
-            # For now, return empty list (MCP client stub from Story 2.1)
-            emails = await self.gmail_client.get_unread_emails()
+            # Use Gmail MCP client to monitor inbox
+            emails = await self.gmail_client.monitor_inbox()
 
             if emails:
                 logger.info(f"Found {len(emails)} unread emails")
@@ -188,6 +187,9 @@ class AgentRunner:
         """
         logger.info("Entering monitoring loop")
         logger.info(f"Polling interval: {self.polling_interval}s")
+
+        # Connect to Gmail MCP client
+        await self.gmail_client.connect()
 
         try:
             while not self._shutdown_requested:
