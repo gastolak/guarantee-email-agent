@@ -30,7 +30,7 @@ development_status:
   # Epic 3: Instruction Engine & Email Processing (MERGED - 6 stories)
   # Merges old Epic 3 (Instruction Engine) + Epic 4 (Email Processing)
   epic-3: in-progress
-  3-1-instruction-parser-and-main-orchestration-logic: ready-for-dev
+  3-1-instruction-parser-and-main-orchestration-logic: review
   3-2-scenario-routing-and-llm-response-generation: backlog
   3-3-email-parser-and-serial-number-extraction: backlog
   3-4-end-to-end-email-processing-pipeline: backlog

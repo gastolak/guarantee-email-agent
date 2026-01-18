@@ -17,10 +17,24 @@ def test_validate_startup_with_valid_config(tmp_path):
     """Test complete startup validation with valid configuration"""
     # Create test instruction files
     main_file = tmp_path / "main.md"
-    main_file.write_text("# Main instruction")
+    main_file.write_text("""---
+name: main
+description: Main instruction
+version: 1.0.0
+---
+
+<objective>Test</objective>
+""")
 
     scenario_file = tmp_path / "scenario.md"
-    scenario_file.write_text("# Scenario")
+    scenario_file.write_text("""---
+name: scenario
+description: Scenario instruction
+version: 1.0.0
+---
+
+<objective>Test scenario</objective>
+""")
 
     eval_dir = tmp_path / "evals"
     eval_dir.mkdir()
@@ -84,7 +98,14 @@ def test_validate_startup_fails_on_missing_instruction_file(tmp_path):
 def test_validate_startup_fails_on_invalid_mcp_connection(tmp_path):
     """Test startup validation fails when MCP connection string is invalid"""
     main_file = tmp_path / "main.md"
-    main_file.write_text("# Main")
+    main_file.write_text("""---
+name: main
+description: Main instruction
+version: 1.0.0
+---
+
+<objective>Test</objective>
+""")
     eval_dir = tmp_path / "evals"
     eval_dir.mkdir()
 
@@ -117,7 +138,14 @@ def test_validate_startup_fails_on_invalid_mcp_connection(tmp_path):
 def test_validate_startup_creates_eval_directory_if_missing(tmp_path):
     """Test startup validation creates eval directory if it doesn't exist"""
     main_file = tmp_path / "main.md"
-    main_file.write_text("# Main")
+    main_file.write_text("""---
+name: main
+description: Main instruction
+version: 1.0.0
+---
+
+<objective>Test</objective>
+""")
     eval_dir = tmp_path / "evals"  # Not created yet
 
     config = AgentConfig(
@@ -152,7 +180,14 @@ def test_validate_startup_timing_within_limits(tmp_path):
     import time
 
     main_file = tmp_path / "main.md"
-    main_file.write_text("# Main")
+    main_file.write_text("""---
+name: main
+description: Main instruction
+version: 1.0.0
+---
+
+<objective>Test</objective>
+""")
     eval_dir = tmp_path / "evals"
     eval_dir.mkdir()
 
