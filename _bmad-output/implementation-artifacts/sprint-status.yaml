@@ -39,10 +39,10 @@ development_status:
   # Epic 4: Evaluation & Production Readiness (MERGED - 4 stories)
   # Merges old Epic 5 (Eval Framework) + Epic 6 (Production Hardening)
   epic-4: in-progress
-  4-1-eval-framework-core-format-execution-pass-rate: in-progress
-  4-2-eval-reporting-and-continuous-improvement-loop: in-progress
-  4-3-error-handling-exit-codes-and-comprehensive-logging: in-progress
-  4-4-signal-handling-idempotent-startup-and-daemon-mode: ready-for-dev
+  4-1-eval-framework-core-format-execution-pass-rate: done
+  4-2-eval-reporting-and-continuous-improvement-loop: done
+  4-3-error-handling-exit-codes-and-comprehensive-logging: done
+  4-4-signal-handling-idempotent-startup-and-daemon-mode: in-progress
   epic-4-retrospective: backlog
 
 # Project Summary

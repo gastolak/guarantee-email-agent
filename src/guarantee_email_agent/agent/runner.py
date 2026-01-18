@@ -47,6 +47,7 @@ class AgentRunner:
 
         # State tracking
         self._shutdown_requested = False
+        self._log_rotation_requested = False
         self._start_time = time.time()
         self._emails_processed = 0
         self._errors_count = 0
@@ -61,15 +62,17 @@ class AgentRunner:
         logger.info("Agent runner initialized")
 
     def register_signal_handlers(self):
-        """Register signal handlers for graceful shutdown.
+        """Register signal handlers for graceful shutdown and log rotation.
 
         Handles:
         - SIGTERM: Graceful shutdown (systemd/Docker)
         - SIGINT: Graceful shutdown (Ctrl+C)
+        - SIGHUP: Log rotation without interrupting operation
         """
         signal.signal(signal.SIGTERM, self._handle_shutdown_signal)
         signal.signal(signal.SIGINT, self._handle_shutdown_signal)
-        logger.info("Signal handlers registered (SIGTERM, SIGINT)")
+        signal.signal(signal.SIGHUP, self._handle_sighup)
+        logger.info("Signal handlers registered (SIGTERM, SIGINT, SIGHUP)")
 
     def _handle_shutdown_signal(self, signum: int, frame):
         """Handle shutdown signal.
@@ -79,8 +82,18 @@ class AgentRunner:
             frame: Current stack frame
         """
         signal_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
-        logger.info(f"Shutdown requested via {signal_name}")
+        logger.info(f"{signal_name} received, initiating graceful shutdown")
         self._shutdown_requested = True
+
+    def _handle_sighup(self, signum: int, frame):
+        """Handle SIGHUP for log rotation.
+
+        Args:
+            signum: Signal number (SIGHUP)
+            frame: Current stack frame
+        """
+        logger.info("SIGHUP received, rotating log files")
+        self._log_rotation_requested = True
 
     async def poll_inbox(self) -> List[Dict[str, Any]]:
         """Poll Gmail inbox for unread emails.
@@ -209,6 +222,7 @@ class AgentRunner:
         shutdown signal received.
 
         Loop will:
+        - Check for log rotation requests (SIGHUP)
         - Poll inbox for unread emails
         - Process emails concurrently
         - Sleep for polling interval
@@ -218,6 +232,7 @@ class AgentRunner:
         Note:
             Errors during processing don't crash the loop
         """
+        logger.info("Agent starting (restart safe, idempotent)")
         logger.info("Entering monitoring loop")
         logger.info(f"Polling interval: {self.polling_interval}s")
 
@@ -228,6 +243,11 @@ class AgentRunner:
 
         try:
             while not self._shutdown_requested:
+                # Check log rotation flag
+                if self._log_rotation_requested:
+                    self._rotate_logs()
+                    self._log_rotation_requested = False
+
                 # Poll inbox
                 emails = await self.poll_inbox()
 
@@ -314,3 +334,43 @@ class AgentRunner:
                 await self.processor.ticketing_client.close()
         except Exception as e:
             logger.warning(f"Error closing Ticketing client: {e}")
+
+    def _rotate_logs(self) -> None:
+        """Rotate log files by closing and reopening handlers.
+
+        This method is called when SIGHUP is received. It closes all
+        file handlers and reopens them, allowing external log rotation
+        tools (like logrotate) to move/rename log files.
+
+        Note:
+            Compatible with logrotate utility (NFR32)
+        """
+        try:
+            logger.info("Starting log rotation...")
+
+            # Get root logger
+            root_logger = logging.getLogger()
+
+            # Store file paths and configurations before closing
+            file_handlers = []
+            for handler in root_logger.handlers[:]:
+                if isinstance(handler, logging.FileHandler):
+                    file_handlers.append({
+                        'path': handler.baseFilename,
+                        'level': handler.level,
+                        'formatter': handler.formatter
+                    })
+                    handler.close()
+                    root_logger.removeHandler(handler)
+
+            # Recreate file handlers with same configuration
+            for handler_config in file_handlers:
+                new_handler = logging.FileHandler(handler_config['path'])
+                new_handler.setLevel(handler_config['level'])
+                new_handler.setFormatter(handler_config['formatter'])
+                root_logger.addHandler(new_handler)
+
+            logger.info("Log rotation complete")
+
+        except Exception as e:
+            logger.error(f"Error during log rotation: {e}", exc_info=True)

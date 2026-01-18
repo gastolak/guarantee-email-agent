@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.example.guarantee-email-agent</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/uv</string>
+        <string>run</string>
+        <string>python</string>
+        <string>-m</string>
+        <string>guarantee_email_agent</string>
+        <string>run</string>
+        <string>--config</string>
+        <string>/opt/guarantee-email-agent/config.yaml</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/opt/guarantee-email-agent</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>ANTHROPIC_API_KEY</key>
+        <string>your-key-here</string>
+        <key>GMAIL_CREDENTIALS</key>
+        <string>/opt/guarantee-email-agent/credentials.json</string>
+        <key>WARRANTY_API_KEY</key>
+        <string>your-key-here</string>
+        <key>TICKETING_API_KEY</key>
+        <string>your-key-here</string>
+        <key>LOG_LEVEL</key>
+        <string>INFO</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/opt/guarantee-email-agent/logs/stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/opt/guarantee-email-agent/logs/stderr.log</string>
+</dict>
+</plist>

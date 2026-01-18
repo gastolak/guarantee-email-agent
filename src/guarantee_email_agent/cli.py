@@ -11,6 +11,7 @@ from guarantee_email_agent.config import load_config, validate_config
 from guarantee_email_agent.agent.startup import validate_startup
 from guarantee_email_agent.agent.runner import AgentRunner
 from guarantee_email_agent.email import create_email_processor
+from guarantee_email_agent.utils.logging import configure_logging
 from guarantee_email_agent.utils.errors import (
     ConfigurationError,
     MCPConnectionError,
@@ -21,12 +22,6 @@ from guarantee_email_agent.utils.errors import (
     EXIT_EVAL_FAILURE,
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
@@ -110,8 +105,18 @@ async def run_agent(config_path: Path, once: bool = False) -> int:
         print_startup_banner()
 
         # Load configuration
-        logger.info(f"Loading configuration from {config_path}")
         config = load_config(str(config_path))
+
+        # Configure logging with stdout/stderr separation
+        log_level = getattr(config.logging, 'level', 'INFO')
+        log_file = getattr(config.logging, 'file_path', None)
+        configure_logging(
+            log_level=log_level,
+            json_format=False,
+            file_path=log_file,
+            use_stderr_separation=True
+        )
+        logger.info(f"Loading configuration from {config_path}")
 
         # Run startup validations
         logger.info("Running startup validations...")

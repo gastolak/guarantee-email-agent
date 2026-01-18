@@ -4,7 +4,9 @@ Implements:
 - Structured logging with Python logging module
 - JSON formatter for production machine-readable logs
 - Customer data protection (NFR14): email body ONLY at DEBUG level
-- Stdout-only logging (NFR16): stateless, no file handlers
+- Stdout/stderr separation (FR50): INFO/DEBUG → stdout, WARNING/ERROR → stderr
+- File logging for daemon mode
+- Log rotation support (NFR32)
 - Context enrichment for troubleshooting (NFR25)
 """
 
@@ -13,6 +15,7 @@ import logging
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 # Standard context keys for consistency across codebase
@@ -27,6 +30,25 @@ CONTEXT_WARRANTY_STATUS = "warranty_status"
 CONTEXT_STEP_DURATION_MS = "step_duration_ms"
 CONTEXT_FAILED_API = "failed_api"
 CONTEXT_DEGRADATION_TYPE = "degradation_type"
+
+
+class StdoutFilter(logging.Filter):
+    """Filter that only allows INFO and DEBUG levels to stdout.
+
+    WARNING, ERROR, and CRITICAL go to stderr via separate handler.
+    This implements FR50: stdout/stderr separation.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Filter log records for stdout.
+
+        Args:
+            record: Log record to filter
+
+        Returns:
+            True if record should go to stdout (DEBUG or INFO), False otherwise
+        """
+        return record.levelno <= logging.INFO
 
 
 class JSONFormatter(logging.Formatter):
@@ -86,25 +108,31 @@ class JSONFormatter(logging.Formatter):
 
 def configure_logging(
     log_level: str = "INFO",
-    json_format: bool = False
+    json_format: bool = False,
+    file_path: Optional[str] = None,
+    use_stderr_separation: bool = True
 ) -> None:
     """Configure application logging.
 
     Configures Python logging with:
     - Structured format (text or JSON)
-    - Stdout-only output (NFR16: stateless)
+    - Stdout/stderr separation (FR50): INFO/DEBUG → stdout, WARNING/ERROR → stderr
+    - Optional file logging for daemon mode
     - Environment variable overrides
 
     Args:
         log_level: Log level (DEBUG, INFO, WARNING, ERROR). Default: INFO
         json_format: Use JSON format (True) or text format (False). Default: False
+        file_path: Optional path to log file for daemon mode
+        use_stderr_separation: Use stdout/stderr separation (True) or stdout only (False). Default: True
 
     Environment Variables:
         LOG_LEVEL: Override log_level parameter
         LOG_FORMAT: Override json_format ("json" or "text")
+        LOG_FILE: Override file_path parameter
 
     Example:
-        >>> configure_logging(log_level="INFO", json_format=False)
+        >>> configure_logging(log_level="INFO", json_format=False, file_path="/var/log/agent.log")
         >>> logger = logging.getLogger(__name__)
         >>> logger.info("Test", extra={"key": "value"})
     """
@@ -112,6 +140,7 @@ def configure_logging(
     log_level = os.getenv("LOG_LEVEL", log_level).upper()
     log_format_env = os.getenv("LOG_FORMAT", "text" if not json_format else "json")
     json_format = log_format_env.lower() == "json"
+    file_path = os.getenv("LOG_FILE", file_path)
 
     # Validate log level
     valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR"}
@@ -126,10 +155,6 @@ def configure_logging(
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
-    # Create stdout handler (NFR16: logs to stdout only, no files)
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(getattr(logging, log_level))
-
     # Set formatter based on format preference
     if json_format:
         formatter = JSONFormatter()
@@ -140,8 +165,31 @@ def configure_logging(
             datefmt="%Y-%m-%d %H:%M:%S"
         )
 
-    handler.setFormatter(formatter)
-    root_logger.addHandler(handler)
+    if use_stderr_separation:
+        # FR50: Stdout/stderr separation
+        # Stdout handler (DEBUG and INFO only)
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setLevel(logging.DEBUG)
+        stdout_handler.setFormatter(formatter)
+        stdout_handler.addFilter(StdoutFilter())
+
+        # Stderr handler (WARNING and above)
+        stderr_handler = logging.StreamHandler(sys.stderr)
+        stderr_handler.setLevel(logging.WARNING)
+        stderr_handler.setFormatter(formatter)
+
+        root_logger.addHandler(stdout_handler)
+        root_logger.addHandler(stderr_handler)
+    else:
+        # Legacy: stdout only
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(getattr(logging, log_level))
+        handler.setFormatter(formatter)
+        root_logger.addHandler(handler)
+
+    # Add file handler if configured
+    if file_path:
+        setup_file_logging(file_path, formatter)
 
     # Log configuration (using extra for JSON compatibility)
     root_logger.info(
@@ -149,9 +197,54 @@ def configure_logging(
         extra={
             "log_level": log_level,
             "log_format": "json" if json_format else "text",
-            "output": "stdout"
+            "output": "stdout/stderr" if use_stderr_separation else "stdout",
+            "file_logging": bool(file_path)
         }
     )
+
+
+def setup_file_logging(
+    file_path: str,
+    formatter: Optional[logging.Formatter] = None
+) -> None:
+    """Add file logging handler.
+
+    Creates log directory if it doesn't exist and adds a file handler
+    that captures all log levels. Compatible with log rotation via SIGHUP.
+
+    Args:
+        file_path: Path to log file
+        formatter: Optional formatter (uses default if not provided)
+
+    Raises:
+        OSError: If log directory cannot be created
+    """
+    try:
+        # Create directory if needed
+        log_dir = Path(file_path).parent
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create formatter if not provided
+        if formatter is None:
+            formatter = logging.Formatter(
+                fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S"
+            )
+
+        # Create file handler
+        file_handler = logging.FileHandler(file_path)
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(formatter)
+
+        # Add to root logger
+        root_logger = logging.getLogger()
+        root_logger.addHandler(file_handler)
+
+        logging.info(f"File logging configured: {file_path}")
+
+    except Exception as e:
+        logging.error(f"Failed to setup file logging: {e}", exc_info=True)
+        raise
 
 
 def log_with_context(

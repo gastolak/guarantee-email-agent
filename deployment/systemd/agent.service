@@ -1,0 +1,40 @@
+[Unit]
+Description=Guarantee Email Agent
+Documentation=https://github.com/your-org/guarantee-email-agent
+After=network.target
+
+[Service]
+Type=simple
+User=agent
+Group=agent
+WorkingDirectory=/opt/guarantee-email-agent
+
+# Environment variables
+Environment="ANTHROPIC_API_KEY=your-key-here"
+Environment="GMAIL_CREDENTIALS=/opt/guarantee-email-agent/credentials.json"
+Environment="WARRANTY_API_KEY=your-key-here"
+Environment="TICKETING_API_KEY=your-key-here"
+Environment="LOG_LEVEL=INFO"
+
+# Start command
+ExecStart=/usr/local/bin/uv run python -m guarantee_email_agent run --config /opt/guarantee-email-agent/config.yaml
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+
+# Logs (stdout/stderr go to journalctl)
+StandardOutput=journal
+StandardError=journal
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
