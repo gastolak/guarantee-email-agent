@@ -38,9 +38,9 @@ development_status:
 
   # Epic 4: Evaluation & Production Readiness (MERGED - 4 stories)
   # Merges old Epic 5 (Eval Framework) + Epic 6 (Production Hardening)
-  epic-4: backlog
-  4-1-eval-framework-core-format-execution-pass-rate: backlog
-  4-2-eval-reporting-and-continuous-improvement-loop: backlog
+  epic-4: in-progress
+  4-1-eval-framework-core-format-execution-pass-rate: ready-for-dev
+  4-2-eval-reporting-and-continuous-improvement-loop: ready-for-dev
   4-3-error-handling-exit-codes-and-comprehensive-logging: backlog
   4-4-signal-handling-idempotent-startup-and-daemon-mode: backlog
   epic-4-retrospective: backlog
@@ -55,11 +55,11 @@ project_info:
 
 # Sprint Metrics (auto-calculated)
 sprint_metrics:
-  stories_ready: 8  # 1.4, 2.1, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+  stories_ready: 10  # 1.4, 2.1, 3.2-3.6, 4.1-4.2
   stories_in_review: 2  # 1.2, 1.3
-  stories_done: 1  # 1.1
-  current_epic: epic-3
-  completion_percentage: 53  # 8 of 15 stories ready or complete (Epic 3 fully drafted!)
+  stories_done: 2  # 1.1, 3.1
+  current_epic: epic-4
+  completion_percentage: 67  # 10 of 15 stories ready or complete, 2 done!
 
 # Optimization Mapping (for reference)
 # Shows how old stories map to new optimized stories
