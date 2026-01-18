@@ -1416,6 +1416,110 @@ The agent now generates proper warranty confirmation responses:
 - Graceful degradation only used for actual failures (not connection bugs)
 - Ready for production deployment
 
+#### Commit 2c8d159 (2026-01-18 16:59): Add Polish language email templates to all scenario instructions
+
+**Changes:**
+- Modified: `instructions/scenarios/valid-warranty.md` (v1.0.0 → v1.1.0)
+- Modified: `instructions/scenarios/invalid-warranty.md` (v1.0.0 → v1.1.0)
+- Modified: `instructions/scenarios/missing-info.md` (v1.0.0 → v1.1.0)
+- Modified: `instructions/scenarios/graceful-degradation.md` (v1.0.0 → v1.1.0)
+- Total: +198 lines, -84 lines
+
+**Language Localization:**
+
+All scenario instructions updated to generate responses in **Polish language** for Polish-speaking customers.
+
+**Key Updates:**
+
+1. **Critical Language Directive:**
+   ```xml
+   <language>
+   **CRITICAL: All email responses MUST be written in Polish language.**
+   Use professional Polish business correspondence style.
+   </language>
+   ```
+
+2. **Polish Email Templates Added:**
+
+   **valid-warranty template:**
+   - Warranty confirmation: "gwarancja na to urządzenie jest ważna i aktywna do dnia..."
+   - RMA process: "Aby kontynuować proces RMA, utworzymy zgłoszenie serwisowe..."
+   - Professional closing: "Pozdrawiam, Zespół Wsparcia Gwarancyjnego"
+
+   **invalid-warranty template:**
+   - Empathetic expired warranty message
+   - Paid repair options: "Płatna naprawa serwisowa"
+   - Alternative: "Możliwość wymiany na nowy model"
+
+   **missing-info template:**
+   - Serial number request: "potrzebujemy numeru seryjnego urządzenia"
+   - Guidance on finding serial: "Numer seryjny można znaleźć..."
+   - Helpful tone: "Chętnie pomożemy!"
+
+   **graceful-degradation template:**
+   - Out-of-scope handling
+   - Department redirection
+   - Support contact information in Polish
+
+3. **Professional Polish Business Correspondence:**
+   - Formal greeting: "Dzień dobry [Imię],"
+   - Polite requests: "Proszę o odpowiedź..."
+   - Professional tone throughout
+   - Proper Polish honorifics: "Państwo/Państwa"
+
+4. **RMA-Specific Polish Terminology:**
+   - "zgłoszenie serwisowe" (service ticket)
+   - "proces RMA" (RMA process)
+   - "gwarancja" (warranty)
+   - "usterki sprzętowe" (hardware failures)
+   - "wady produkcyjne" (manufacturing defects)
+
+**Testing Results:**
+
+Polish RMA email for C074AD3D3101:
+```
+Dzień dobry Adam,
+
+Dziękujemy za kontakt w sprawie RMA dla bramki Mediant o numerze
+seryjnym C074AD3D3101.
+
+Z przyjemnością potwierdzam, że gwarancja na to urządzenie jest
+**ważna i aktywna do dnia 18 stycznia 2027**. Gwarancja obejmuje
+wady produkcyjne oraz usterki sprzętowe powstałe podczas normalnego
+użytkowania.
+
+Aby kontynuować proces RMA, utworzymy zgłoszenie serwisowe. Nasz
+zespół techniczny skontaktuje się z Państwem w ciągu 24 godzin...
+
+Rozumiemy również Państwa sugestię dotyczącą możliwości wymiany
+urządzenia M500Li na standardowy model M500 lub M500L...
+
+Pozdrawiam,
+Zespół Wsparcia Gwarancyjnego
+```
+
+**Impact:**
+- ✅ All automated emails now in Polish language
+- ✅ Professional business correspondence tone
+- ✅ Culturally appropriate formal address ("Państwo")
+- ✅ RMA-specific Polish terminology
+- ✅ Improved customer experience for Polish clients
+- ✅ Template consistency across all 4 scenarios
+- ✅ Processing time unchanged: ~5-6 seconds
+
+**Customer Experience Improvement:**
+- Before: Generic English templates
+- After: Professional Polish business correspondence
+- Addresses customer in their native language
+- Uses proper business formality expected in Polish B2B communication
+- Acknowledges specific customer concerns (M500Li replacement)
+
+**Architecture Alignment:**
+- Supports Story 3.2 (Scenario Routing and LLM Response Generation)
+- Demonstrates LLM capability for multi-language response generation
+- Template-based approach ensures consistency
+- Ready for additional language support if needed
+
 ### File List
 
 **Logging Utilities:**
