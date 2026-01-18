@@ -33,7 +33,7 @@ development_status:
   3-3-email-parser-and-serial-number-extraction: review
   3-4-end-to-end-email-processing-pipeline: review
   3-5-cli-agent-run-command-and-graceful-shutdown: review
-  3-6-structured-logging-and-graceful-degradation: in-progress
+  3-6-structured-logging-and-graceful-degradation: review
   epic-3-retrospective: backlog
 
   # Epic 4: Evaluation & Production Readiness (MERGED - 4 stories)
