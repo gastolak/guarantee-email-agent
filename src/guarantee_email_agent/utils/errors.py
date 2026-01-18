@@ -1,8 +1,35 @@
-"""Agent error hierarchy with error codes."""
+"""Agent error hierarchy with error codes.
+
+Error code pattern: {component}_{error_type}
+Components: config, mcp, instruction, llm, processing, eval, email
+Error types: connection_failed, parse_error, timeout, validation_error, not_found
+
+Examples:
+- mcp_connection_failed
+- instruction_parse_error
+- llm_timeout
+- config_missing_field
+"""
+
+# Exit code constants (NFR29)
+EXIT_SUCCESS = 0  # Success
+EXIT_GENERAL_ERROR = 1  # General/unexpected errors
+EXIT_CONFIG_ERROR = 2  # Configuration errors
+EXIT_MCP_ERROR = 3  # MCP connection failures during startup
+EXIT_EVAL_FAILURE = 4  # Eval pass rate <99%
 
 
 class AgentError(Exception):
-    """Base exception for agent errors."""
+    """Base exception for agent errors.
+
+    All domain errors should use this hierarchy with appropriate
+    error codes and contextual details for debugging.
+
+    Attributes:
+        message: Human-readable error message
+        code: Machine-readable error code following pattern {component}_{error_type}
+        details: Dict with additional error context (serial_number, file_path, etc.)
+    """
 
     def __init__(self, message: str, code: str, details: dict = None):
         """Initialize AgentError.
@@ -16,6 +43,59 @@ class AgentError(Exception):
         self.code = code
         self.details = details or {}
         super().__init__(self.message)
+
+    def __str__(self) -> str:
+        """String representation with code and key details."""
+        parts = [f"{self.message} (code: {self.code})"]
+        if self.details:
+            # Show first 3 detail items for brevity
+            detail_items = list(self.details.items())[:3]
+            detail_str = ", ".join(f"{k}={v}" for k, v in detail_items)
+            parts.append(f"[{detail_str}]")
+        return " ".join(parts)
+
+    def __repr__(self) -> str:
+        """Detailed representation for debugging."""
+        return (
+            f"{self.__class__.__name__}("
+            f"message={self.message!r}, "
+            f"code={self.code!r}, "
+            f"details={self.details!r})"
+        )
+
+    def add_context(self, **kwargs) -> "AgentError":
+        """Add additional context to error details.
+
+        Useful for enriching errors during exception handling.
+
+        Args:
+            **kwargs: Key-value pairs to add to details dict
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            try:
+                process_email(email)
+            except AgentError as e:
+                raise e.add_context(email_id="123", serial="SN456")
+        """
+        self.details.update(kwargs)
+        return self
+
+    @property
+    def is_transient(self) -> bool:
+        """Check if error is transient and should be retried.
+
+        Transient errors: timeouts, network errors, rate limits, 5xx responses
+        Permanent errors: validation errors, auth failures, 4xx (except 429)
+
+        Returns:
+            True if error should be retried, False otherwise
+        """
+        # Default: permanent unless explicitly transient
+        # Subclasses can override or use TransientError base class
+        return False
 
 
 class ConfigurationError(AgentError):
@@ -44,8 +124,20 @@ class InstructionValidationError(InstructionError):
 
 
 class TransientError(AgentError):
-    """Base class for transient errors that should be retried."""
-    pass
+    """Base class for transient errors that should be retried.
+
+    Transient errors include:
+    - Network timeouts
+    - Connection failures
+    - Rate limiting (429)
+    - 5xx server errors
+    - Temporary resource unavailability
+    """
+
+    @property
+    def is_transient(self) -> bool:
+        """Transient errors should always be retried."""
+        return True
 
 
 class LLMError(AgentError):
@@ -78,6 +170,29 @@ class EmailParseError(AgentError):
     pass
 
 
+class ProcessingError(AgentError):
+    """Email processing pipeline failures.
+
+    Use for errors during email processing steps:
+    - Parsing failures
+    - Serial number extraction failures
+    - Scenario detection failures
+    - Response generation failures
+
+    Include in details: email_id, serial_number, failed_step
+    """
+    pass
+
+
 class EvalError(AgentError):
-    """Eval framework-related errors."""
+    """Eval framework-related errors.
+
+    Use for eval test case errors:
+    - Test case file not found
+    - YAML parsing errors
+    - Execution failures
+    - Validation errors
+
+    Include in details: scenario_id, file_path
+    """
     pass

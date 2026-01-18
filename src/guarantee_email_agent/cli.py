@@ -11,7 +11,15 @@ from guarantee_email_agent.config import load_config, validate_config
 from guarantee_email_agent.agent.startup import validate_startup
 from guarantee_email_agent.agent.runner import AgentRunner
 from guarantee_email_agent.email import create_email_processor
-from guarantee_email_agent.utils.errors import ConfigurationError, MCPConnectionError
+from guarantee_email_agent.utils.errors import (
+    ConfigurationError,
+    MCPConnectionError,
+    EXIT_SUCCESS,
+    EXIT_GENERAL_ERROR,
+    EXIT_CONFIG_ERROR,
+    EXIT_MCP_ERROR,
+    EXIT_EVAL_FAILURE,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -91,7 +99,11 @@ async def run_agent(config_path: Path, once: bool = False) -> int:
         once: If True, process emails once and exit (for testing)
 
     Returns:
-        Exit code (0=success, 2=config error, 3=MCP error, 1=other error)
+        Exit code per NFR29:
+        - 0 (EXIT_SUCCESS): Success
+        - 1 (EXIT_GENERAL_ERROR): Unexpected errors
+        - 2 (EXIT_CONFIG_ERROR): Configuration errors
+        - 3 (EXIT_MCP_ERROR): MCP connection failures during startup
     """
     try:
         # Display startup banner
@@ -107,11 +119,11 @@ async def run_agent(config_path: Path, once: bool = False) -> int:
             await validate_startup(config)
             logger.info("✓ All startup validations passed")
         except ConfigurationError as e:
-            logger.error(f"Configuration validation failed: {e}")
-            return 2  # Exit code 2: Configuration error
+            logger.error(f"Configuration validation failed: {e}", exc_info=True)
+            return EXIT_CONFIG_ERROR
         except MCPConnectionError as e:
-            logger.error(f"MCP connection failed: {e}")
-            return 3  # Exit code 3: MCP connection error
+            logger.error(f"MCP connection failed: {e}", exc_info=True)
+            return EXIT_MCP_ERROR
 
         # Initialize email processor
         logger.info("Initializing email processor...")
@@ -135,14 +147,14 @@ async def run_agent(config_path: Path, once: bool = False) -> int:
 
         # Clean shutdown
         logger.info("Agent shutdown complete")
-        return 0
+        return EXIT_SUCCESS
 
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received")
-        return 0
+        return EXIT_SUCCESS
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
-        return 1
+        return EXIT_GENERAL_ERROR
 
 
 @app.command()
@@ -172,6 +184,12 @@ def run(
     - Process emails and send automated responses
     - Create tickets for valid warranties
     - Run until interrupted (Ctrl+C or SIGTERM)
+
+    Exit Codes (NFR29):
+        0 - Success (clean shutdown)
+        1 - Unexpected error
+        2 - Configuration error
+        3 - MCP connection failure during startup
     """
     exit_code = asyncio.run(run_agent(config_path, once=once))
     sys.exit(exit_code)
@@ -193,7 +211,10 @@ async def run_eval(
         detailed: Show detailed failure report with suggestions
 
     Returns:
-        Exit code (0 if ≥99%, 4 if <99%)
+        Exit code per NFR29:
+        - 0 (EXIT_SUCCESS): Pass rate ≥99%
+        - 4 (EXIT_EVAL_FAILURE): Pass rate <99%
+        - 1 (EXIT_GENERAL_ERROR): Execution error
     """
     import time
     from guarantee_email_agent.eval.loader import EvalLoader
@@ -216,7 +237,7 @@ async def run_eval(
             typer.echo("\nCreate eval test cases in YAML format:")
             typer.echo(f"  {eval_dir}/valid_warranty_001.yaml")
             typer.echo("\nSee evals/scenarios/README.md for template and examples")
-            return 4
+            return EXIT_EVAL_FAILURE
 
         typer.echo(f"\n🔍 Running evaluation suite... ({len(test_cases)} scenarios)\n")
 
@@ -249,15 +270,15 @@ async def run_eval(
         pass_rate = reporter.calculate_pass_rate(results)
         if pass_rate >= 99.0:
             logger.info(f"Eval passed: {pass_rate:.1f}% pass rate")
-            return 0
+            return EXIT_SUCCESS
         else:
             logger.warning(f"Eval failed: {pass_rate:.1f}% pass rate (<99%)")
-            return 4
+            return EXIT_EVAL_FAILURE
 
     except Exception as e:
         logger.error(f"Eval execution error: {e}", exc_info=True)
         typer.echo(f"❌ Eval execution error: {e}")
-        return 1
+        return EXIT_GENERAL_ERROR
 
 
 @app.command()
@@ -290,7 +311,12 @@ def eval(
     Run evaluation suite to validate agent correctness.
 
     Discovers and executes all YAML test cases in the eval directory.
-    Reports pass rate and exits with code 0 if ≥99%, code 4 if <99%.
+    Reports pass rate and exits with appropriate code per NFR29.
+
+    Exit Codes:
+        0 - Success (pass rate ≥99%)
+        4 - Eval failure (pass rate <99%)
+        1 - Execution error
 
     Examples:
         # Basic run
@@ -307,6 +333,9 @@ def eval(
 
         # Custom eval directory
         uv run python -m guarantee_email_agent eval --eval-dir custom/evals
+
+        # Check exit code in scripts
+        uv run python -m guarantee_email_agent eval || echo "Failed with $?"
     """
     exit_code = asyncio.run(run_eval(eval_dir, verbose, failures_only, detailed))
     sys.exit(exit_code)
