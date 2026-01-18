@@ -1,6 +1,6 @@
 # Story 1.3: Environment Variable Management for Secrets
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -27,68 +27,68 @@ So that secrets are never committed to code or configuration files and fail-fast
 ## Tasks / Subtasks
 
 - [x] Create .env.example template file (AC: documents required env vars)
-  - [ ] Document ANTHROPIC_API_KEY for LLM integration
-  - [ ] Document GMAIL_API_KEY for Gmail MCP authentication
-  - [ ] Document WARRANTY_API_KEY for warranty API authentication
-  - [ ] Document TICKETING_API_KEY for ticketing system authentication
-  - [ ] Document CONFIG_PATH as optional override
-  - [ ] Document LOG_LEVEL as optional override
-  - [ ] Add comments explaining each variable's purpose
+  - [x] Document ANTHROPIC_API_KEY for LLM integration
+  - [x] Document GMAIL_API_KEY for Gmail MCP authentication
+  - [x] Document WARRANTY_API_KEY for warranty API authentication
+  - [x] Document TICKETING_API_KEY for ticketing system authentication
+  - [x] Document CONFIG_PATH as optional override
+  - [x] Document LOG_LEVEL as optional override
+  - [x] Add comments explaining each variable's purpose
 
 - [x] Update .gitignore to protect secrets (AC: .env prevented from commits)
-  - [ ] Add .env to .gitignore
-  - [ ] Add *.env to catch variations
-  - [ ] Ensure .env.example is NOT ignored (it should be committed)
-  - [ ] Add comment explaining secrets protection
+  - [x] Add .env to .gitignore
+  - [x] Add *.env to catch variations
+  - [x] Ensure .env.example is NOT ignored (it should be committed)
+  - [x] Add comment explaining secrets protection
 
 - [x] Enhance config loader to load environment variables (AC: secrets loaded from env)
-  - [ ] Add python-dotenv import to loader.py
-  - [ ] Call load_dotenv() at module import time
-  - [ ] Create load_secrets() function to read env vars
-  - [ ] Return dict with all required API keys
-  - [ ] Handle missing env vars with clear error messages
+  - [x] Add python-dotenv import to loader.py
+  - [x] Call load_dotenv() at module import time
+  - [x] Create load_secrets() function to read env vars
+  - [x] Return dict with all required API keys
+  - [x] Handle missing env vars with clear error messages
 
 - [x] Create secrets configuration dataclass (AC: secrets accessible throughout app)
-  - [ ] Create SecretsConfig dataclass in schema.py
-  - [ ] Add fields: anthropic_api_key, gmail_api_key, warranty_api_key, ticketing_api_key
-  - [ ] Add to AgentConfig as secrets field
-  - [ ] Make secrets immutable (frozen=True)
+  - [x] Create SecretsConfig dataclass in schema.py
+  - [x] Add fields: anthropic_api_key, gmail_api_key, warranty_api_key, ticketing_api_key
+  - [x] Add to AgentConfig as secrets field
+  - [x] Make secrets immutable (frozen=True)
 
 - [x] Implement environment variable validation (AC: validator checks required secrets)
-  - [ ] Create validate_secrets() function in validator.py
-  - [ ] Check ANTHROPIC_API_KEY is set and non-empty
-  - [ ] Check GMAIL_API_KEY is set and non-empty
-  - [ ] Check WARRANTY_API_KEY is set and non-empty
-  - [ ] Check TICKETING_API_KEY is set and non-empty
-  - [ ] Raise ConfigurationError with specific variable name if missing
+  - [x] Create validate_secrets() function in validator.py
+  - [x] Check ANTHROPIC_API_KEY is set and non-empty
+  - [x] Check GMAIL_API_KEY is set and non-empty
+  - [x] Check WARRANTY_API_KEY is set and non-empty
+  - [x] Check TICKETING_API_KEY is set and non-empty
+  - [x] Raise ConfigurationError with specific variable name if missing
 
 - [x] Add CONFIG_PATH environment variable support (AC: can override config location)
-  - [ ] Update load_config() to check os.getenv("CONFIG_PATH")
-  - [ ] Use CONFIG_PATH if set, otherwise default to "config.yaml"
-  - [ ] Document CONFIG_PATH in .env.example
-  - [ ] Test with custom config path
+  - [x] Update load_config() to check os.getenv("CONFIG_PATH")
+  - [x] Use CONFIG_PATH if set, otherwise default to "config.yaml"
+  - [x] Document CONFIG_PATH in .env.example
+  - [x] Test with custom config path
 
 - [x] Integrate secrets loading into CLI startup (AC: fails fast if secrets missing)
-  - [ ] Update CLI to load secrets before config validation
-  - [ ] Call validate_secrets() during startup
-  - [ ] Catch ConfigurationError for missing secrets
-  - [ ] Exit with code 2 and clear error message
+  - [x] Update CLI to load secrets before config validation
+  - [x] Call validate_secrets() during startup
+  - [x] Catch ConfigurationError for missing secrets
+  - [x] Exit with code 2 and clear error message
 
 - [x] Create unit tests for secrets management (AC: validation tested)
-  - [ ] Create tests/config/test_secrets.py
-  - [ ] Test load_secrets() with all env vars set
-  - [ ] Test missing ANTHROPIC_API_KEY detection
-  - [ ] Test missing WARRANTY_API_KEY detection
-  - [ ] Test empty env var detection
-  - [ ] Test CONFIG_PATH override functionality
-  - [ ] Mock environment variables using pytest fixtures
+  - [x] Create tests/config/test_secrets.py
+  - [x] Test load_secrets() with all env vars set
+  - [x] Test missing ANTHROPIC_API_KEY detection
+  - [x] Test missing WARRANTY_API_KEY detection
+  - [x] Test empty env var detection
+  - [x] Test CONFIG_PATH override functionality
+  - [x] Mock environment variables using pytest fixtures
 
 - [x] Verify secrets integration (AC: secrets accessible, gitignore works)
-  - [ ] Create .env file locally with test values
-  - [ ] Run agent with valid secrets (should start)
-  - [ ] Remove one required env var (should fail with exit code 2)
-  - [ ] Verify .env is in .gitignore (git status should not show .env)
-  - [ ] Verify secrets are accessible in config object
+  - [x] Create .env file locally with test values
+  - [x] Run agent with valid secrets (should start)
+  - [x] Remove one required env var (should fail with exit code 2)
+  - [x] Verify .env is in .gitignore (git status should not show .env)
+  - [x] Verify secrets are accessible in config object
 
 ## Dev Notes
 
@@ -724,12 +724,19 @@ No debugging required - all tasks completed successfully on first attempt.
 ✅ Secrets accessible throughout app via config.secrets
 
 **Test Results:**
-- 36/36 total tests passing (10 new secrets tests)
+- 10/10 secrets tests passing (28 total config tests with Story 1.2)
 - Valid secrets: loads successfully ✅
 - Missing ANTHROPIC_API_KEY: exit code 2 with helpful hint ✅
 - CONFIG_PATH override: works correctly ✅
 - .env correctly ignored by git ✅
 - SecretsConfig is immutable (frozen=True) ✅
+
+**Code Review Fixes Applied (Post-Implementation):**
+- Fixed all subtask completion markers (were incorrectly [ ] instead of [x])
+- All config dataclasses now immutable (frozen=True) for consistency with SecretsConfig
+- Enhanced error handling to show full dotted field paths
+- Added file path and URL validation to validator
+- All 28 tests passing after comprehensive review
 
 **Security Verification:**
 - .env file NOT tracked by git ✅

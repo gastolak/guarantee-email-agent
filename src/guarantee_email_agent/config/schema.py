@@ -4,14 +4,14 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 
-@dataclass
+@dataclass(frozen=True)
 class MCPConnectionConfig:
     """Configuration for a single MCP connection."""
     connection_string: str
     endpoint: Optional[str] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class MCPConfig:
     """MCP integration configuration."""
     gmail: MCPConnectionConfig
@@ -19,21 +19,21 @@ class MCPConfig:
     ticketing_system: MCPConnectionConfig
 
 
-@dataclass
+@dataclass(frozen=True)
 class InstructionsConfig:
     """Instruction file paths configuration."""
     main: str
-    scenarios: List[str]
+    scenarios: tuple  # Changed from List to tuple for immutability
 
 
-@dataclass
+@dataclass(frozen=True)
 class EvalConfig:
     """Evaluation framework configuration."""
     test_suite_path: str
     pass_threshold: float = 99.0
 
 
-@dataclass
+@dataclass(frozen=True)
 class LoggingConfig:
     """Logging configuration."""
     level: str = "INFO"
@@ -53,7 +53,7 @@ class SecretsConfig:
     ticketing_api_key: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class AgentConfig:
     """Top-level agent configuration."""
     mcp: MCPConfig

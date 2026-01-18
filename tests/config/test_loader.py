@@ -127,3 +127,46 @@ logging:
     assert config.mcp.gmail.endpoint is None
     assert config.mcp.warranty_api.endpoint is None
     assert config.mcp.ticketing_system.endpoint is None
+
+
+def test_load_config_includes_secrets(tmp_path, monkeypatch):
+    """Test that load_config includes secrets from environment in AgentConfig."""
+    # Set up environment variables
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-123")
+    monkeypatch.setenv("GMAIL_API_KEY", "test-gmail-456")
+    monkeypatch.setenv("WARRANTY_API_KEY", "test-warranty-789")
+    monkeypatch.setenv("TICKETING_API_KEY", "test-ticketing-abc")
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("""
+mcp:
+  gmail:
+    connection_string: "mcp://gmail"
+  warranty_api:
+    connection_string: "mcp://warranty-api"
+  ticketing_system:
+    connection_string: "mcp://ticketing"
+
+instructions:
+  main: "./instructions/main.md"
+  scenarios:
+    - "./instructions/scenarios/valid-warranty.md"
+
+eval:
+  test_suite_path: "./evals/scenarios/"
+  pass_threshold: 99.0
+
+logging:
+  level: "INFO"
+  output: "stdout"
+  file: "./logs/agent.log"
+    """)
+
+    config = load_config(str(config_file))
+
+    # Verify secrets are included in config
+    assert hasattr(config, 'secrets')
+    assert config.secrets.anthropic_api_key == "test-anthropic-123"
+    assert config.secrets.gmail_api_key == "test-gmail-456"
+    assert config.secrets.warranty_api_key == "test-warranty-789"
+    assert config.secrets.ticketing_api_key == "test-ticketing-abc"

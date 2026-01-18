@@ -88,17 +88,82 @@ def load_config(config_path: str = None) -> AgentConfig:
             details={"config_path": config_path, "error": str(e)}
         )
 
-    # Parse nested sections into dataclasses
+    # Parse nested sections into dataclasses with detailed error tracking
     try:
+        # Parse MCP config with field path tracking
+        try:
+            mcp_data = raw_config['mcp']
+        except KeyError:
+            raise ConfigurationError(
+                message="Missing required config field: mcp",
+                code="config_missing_field",
+                details={"field": "mcp"}
+            )
+
+        try:
+            gmail_conn = MCPConnectionConfig(**mcp_data['gmail'])
+        except KeyError as e:
+            raise ConfigurationError(
+                message=f"Missing required config field: mcp.gmail.{e.args[0] if e.args else 'gmail'}",
+                code="config_missing_field",
+                details={"field": f"mcp.gmail.{e.args[0] if e.args else 'gmail'}"}
+            )
+
+        try:
+            warranty_conn = MCPConnectionConfig(**mcp_data['warranty_api'])
+        except KeyError as e:
+            raise ConfigurationError(
+                message=f"Missing required config field: mcp.warranty_api.{e.args[0] if e.args else 'warranty_api'}",
+                code="config_missing_field",
+                details={"field": f"mcp.warranty_api.{e.args[0] if e.args else 'warranty_api'}"}
+            )
+
+        try:
+            ticketing_conn = MCPConnectionConfig(**mcp_data['ticketing_system'])
+        except KeyError as e:
+            raise ConfigurationError(
+                message=f"Missing required config field: mcp.ticketing_system.{e.args[0] if e.args else 'ticketing_system'}",
+                code="config_missing_field",
+                details={"field": f"mcp.ticketing_system.{e.args[0] if e.args else 'ticketing_system'}"}
+            )
+
         mcp_config = MCPConfig(
-            gmail=MCPConnectionConfig(**raw_config['mcp']['gmail']),
-            warranty_api=MCPConnectionConfig(**raw_config['mcp']['warranty_api']),
-            ticketing_system=MCPConnectionConfig(**raw_config['mcp']['ticketing_system'])
+            gmail=gmail_conn,
+            warranty_api=warranty_conn,
+            ticketing_system=ticketing_conn
         )
 
-        instructions_config = InstructionsConfig(**raw_config['instructions'])
-        eval_config = EvalConfig(**raw_config['eval'])
-        logging_config = LoggingConfig(**raw_config['logging'])
+        # Parse instructions config
+        try:
+            instructions_data = raw_config['instructions'].copy()
+            instructions_data['scenarios'] = tuple(instructions_data['scenarios'])
+            instructions_config = InstructionsConfig(**instructions_data)
+        except KeyError as e:
+            raise ConfigurationError(
+                message=f"Missing required config field: instructions.{e.args[0] if e.args else 'instructions'}",
+                code="config_missing_field",
+                details={"field": f"instructions.{e.args[0] if e.args else 'instructions'}"}
+            )
+
+        # Parse eval config
+        try:
+            eval_config = EvalConfig(**raw_config['eval'])
+        except KeyError as e:
+            raise ConfigurationError(
+                message=f"Missing required config field: eval.{e.args[0] if e.args else 'eval'}",
+                code="config_missing_field",
+                details={"field": f"eval.{e.args[0] if e.args else 'eval'}"}
+            )
+
+        # Parse logging config
+        try:
+            logging_config = LoggingConfig(**raw_config['logging'])
+        except KeyError as e:
+            raise ConfigurationError(
+                message=f"Missing required config field: logging.{e.args[0] if e.args else 'logging'}",
+                code="config_missing_field",
+                details={"field": f"logging.{e.args[0] if e.args else 'logging'}"}
+            )
 
         return AgentConfig(
             mcp=mcp_config,
@@ -106,12 +171,6 @@ def load_config(config_path: str = None) -> AgentConfig:
             eval=eval_config,
             logging=logging_config,
             secrets=secrets
-        )
-    except KeyError as e:
-        raise ConfigurationError(
-            message=f"Missing required config field: {e}",
-            code="config_missing_field",
-            details={"field": str(e)}
         )
     except TypeError as e:
         raise ConfigurationError(

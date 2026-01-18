@@ -1,5 +1,7 @@
 """Configuration validator for schema validation."""
 
+from pathlib import Path
+from urllib.parse import urlparse
 from guarantee_email_agent.config.schema import AgentConfig, SecretsConfig
 from guarantee_email_agent.utils.errors import ConfigurationError
 
@@ -76,6 +78,22 @@ def validate_config(config: AgentConfig) -> None:
             details={"field": "mcp.ticketing_system.connection_string"}
         )
 
+    # Validate MCP endpoint URLs if provided
+    def validate_endpoint_url(endpoint: str, field_name: str) -> None:
+        """Validate that endpoint URL has valid scheme."""
+        if endpoint:
+            parsed = urlparse(endpoint)
+            if parsed.scheme not in ("http", "https"):
+                raise ConfigurationError(
+                    message=f"Invalid {field_name}: URL must use http or https scheme",
+                    code="config_invalid_url",
+                    details={"field": field_name, "value": endpoint, "valid_schemes": ["http", "https"]}
+                )
+
+    validate_endpoint_url(config.mcp.gmail.endpoint, "mcp.gmail.endpoint")
+    validate_endpoint_url(config.mcp.warranty_api.endpoint, "mcp.warranty_api.endpoint")
+    validate_endpoint_url(config.mcp.ticketing_system.endpoint, "mcp.ticketing_system.endpoint")
+
     # Validate instructions paths
     if not config.instructions.main:
         raise ConfigurationError(
@@ -84,6 +102,7 @@ def validate_config(config: AgentConfig) -> None:
             details={"field": "instructions.main"}
         )
 
+    # Check for empty scenarios list BEFORE file existence check
     if not config.instructions.scenarios or len(config.instructions.scenarios) == 0:
         raise ConfigurationError(
             message="Missing required config field: instructions.scenarios (must have at least one scenario)",
@@ -91,12 +110,40 @@ def validate_config(config: AgentConfig) -> None:
             details={"field": "instructions.scenarios"}
         )
 
+    # Validate main instruction file exists
+    main_path = Path(config.instructions.main)
+    if not main_path.exists():
+        raise ConfigurationError(
+            message=f"Instruction file not found: {config.instructions.main}",
+            code="config_path_not_found",
+            details={"field": "instructions.main", "path": str(main_path)}
+        )
+
+    # Validate scenario files exist
+    for i, scenario_path in enumerate(config.instructions.scenarios):
+        scenario_file = Path(scenario_path)
+        if not scenario_file.exists():
+            raise ConfigurationError(
+                message=f"Scenario instruction file not found: {scenario_path}",
+                code="config_path_not_found",
+                details={"field": f"instructions.scenarios[{i}]", "path": str(scenario_file)}
+            )
+
     # Validate eval configuration
     if not config.eval.test_suite_path:
         raise ConfigurationError(
             message="Missing required config field: eval.test_suite_path",
             code="config_missing_field",
             details={"field": "eval.test_suite_path"}
+        )
+
+    # Validate eval test suite path exists
+    eval_path = Path(config.eval.test_suite_path)
+    if not eval_path.exists():
+        raise ConfigurationError(
+            message=f"Evaluation test suite path not found: {config.eval.test_suite_path}",
+            code="config_path_not_found",
+            details={"field": "eval.test_suite_path", "path": str(eval_path)}
         )
 
     if config.eval.pass_threshold <= 0 or config.eval.pass_threshold > 100:
@@ -114,3 +161,16 @@ def validate_config(config: AgentConfig) -> None:
             code="config_invalid_value",
             details={"field": "logging.level", "value": config.logging.level, "valid_values": valid_log_levels}
         )
+
+    # Validate log file directory exists (create if needed for fail-fast)
+    log_file_path = Path(config.logging.file)
+    log_dir = log_file_path.parent
+    if not log_dir.exists():
+        try:
+            log_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            raise ConfigurationError(
+                message=f"Cannot create log directory: {log_dir}",
+                code="config_path_not_found",
+                details={"field": "logging.file", "path": str(log_dir), "error": str(e)}
+            )

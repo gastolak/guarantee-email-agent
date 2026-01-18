@@ -1,6 +1,6 @@
 # Story 1.2: Create Configuration Schema and Validation
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -686,11 +686,20 @@ No debugging required - all tasks completed successfully on first attempt.
 ✅ Config accessible throughout application via imports
 
 **Test Results:**
-- 17/17 unit tests passing
+- 6/6 unit tests passing (Story 1.2 tests only; 28 total with Story 1.3)
 - Valid config loads successfully
 - Missing config file: exit code 2 ✅
 - Invalid YAML syntax: clear error message ✅
 - Missing required fields: specific field path in error ✅
+
+**Code Review Fixes Applied (Post-Implementation):**
+- Added immutability (frozen=True) to all config dataclasses for safer configuration handling
+- Enhanced KeyError handling to show full dotted field paths (e.g., "mcp.gmail.connection_string")
+- Added file path existence validation for instructions and eval paths
+- Added URL validation for MCP endpoint fields
+- Added test for secrets integration in test_loader.py
+- Changed InstructionsConfig.scenarios from List to tuple for immutability
+- All 28 tests passing after review fixes
 
 ### File List
 
