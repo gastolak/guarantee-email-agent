@@ -11,10 +11,24 @@ from guarantee_email_agent.config.schema import AgentConfig
 
 @pytest.fixture
 def mock_config():
-    """Create mock configuration."""
+    """Create mock configuration with Gemini provider."""
+    from guarantee_email_agent.config.schema import LLMConfig, SecretsConfig
+
     config = Mock(spec=AgentConfig)
-    config.secrets = Mock()
-    config.secrets.anthropic_api_key = "test_api_key"
+    config.llm = LLMConfig(
+        provider="gemini",
+        model="gemini-2.0-flash-exp",
+        temperature=0.7,
+        max_tokens=8192,
+        timeout_seconds=15
+    )
+    config.secrets = SecretsConfig(
+        anthropic_api_key=None,
+        gemini_api_key="test_gemini_key",
+        gmail_api_key="test_gmail_key",
+        warranty_api_key="test_warranty_key",
+        ticketing_api_key="test_ticketing_key"
+    )
     return config
 
 
@@ -138,11 +152,8 @@ async def test_llm_detection_valid_warranty(mock_config, test_email_with_serial,
     """Test LLM detection identifies valid warranty inquiry."""
     detector = ScenarioDetector(mock_config, "test instruction")
 
-    # Mock Anthropic response
-    mock_response = Mock()
-    mock_response.content = [Mock(text="valid_warranty_inquiry")]
-
-    with patch.object(detector.client.messages, 'create', return_value=mock_response):
+    # Mock LLM provider response (returns string directly)
+    with patch.object(detector.llm_provider, 'create_message', return_value="valid_warranty_inquiry"):
         result = await detector.detect_with_llm(test_email_with_serial, serial_result_found)
 
         assert result.scenario_name == "valid-warranty"
@@ -156,10 +167,8 @@ async def test_llm_detection_missing_info(mock_config, test_email_no_serial, ser
     """Test LLM detection identifies missing information."""
     detector = ScenarioDetector(mock_config, "test instruction")
 
-    mock_response = Mock()
-    mock_response.content = [Mock(text="missing_information")]
-
-    with patch.object(detector.client.messages, 'create', return_value=mock_response):
+    # Mock LLM provider response
+    with patch.object(detector.llm_provider, 'create_message', return_value="missing_information"):
         result = await detector.detect_with_llm(test_email_no_serial, serial_result_not_found)
 
         assert result.scenario_name == "missing-info"
@@ -179,10 +188,8 @@ async def test_llm_detection_out_of_scope(mock_config, serial_result_not_found):
 
     detector = ScenarioDetector(mock_config, "test instruction")
 
-    mock_response = Mock()
-    mock_response.content = [Mock(text="out_of_scope")]
-
-    with patch.object(detector.client.messages, 'create', return_value=mock_response):
+    # Mock LLM provider response
+    with patch.object(detector.llm_provider, 'create_message', return_value="out_of_scope"):
         result = await detector.detect_with_llm(non_warranty_email, serial_result_not_found)
 
         assert result.scenario_name == "out-of-scope"
@@ -195,10 +202,8 @@ async def test_llm_detection_ambiguous_response(mock_config, test_email_with_ser
     """Test LLM detection handles ambiguous classification."""
     detector = ScenarioDetector(mock_config, "test instruction")
 
-    mock_response = Mock()
-    mock_response.content = [Mock(text="unknown_category")]
-
-    with patch.object(detector.client.messages, 'create', return_value=mock_response):
+    # Mock LLM provider with unknown response
+    with patch.object(detector.llm_provider, 'create_message', return_value="unknown_category"):
         result = await detector.detect_with_llm(test_email_with_serial, serial_result_found)
 
         # Should default to graceful-degradation for ambiguous response
@@ -237,10 +242,7 @@ async def test_detect_scenario_low_confidence_fallback_to_llm(mock_config, seria
     detector = ScenarioDetector(mock_config, "test instruction")
 
     # Mock LLM response
-    mock_response = Mock()
-    mock_response.content = [Mock(text="out_of_scope")]
-
-    with patch.object(detector.client.messages, 'create', return_value=mock_response):
+    with patch.object(detector.llm_provider, 'create_message', return_value="out_of_scope"):
         result = await detector.detect_scenario(ambiguous_email, serial_result_not_found)
 
         # Should have used LLM fallback
@@ -261,7 +263,7 @@ async def test_detect_scenario_error_handling(mock_config, serial_result_not_fou
     detector = ScenarioDetector(mock_config, "test instruction")
 
     # Mock LLM to raise error
-    with patch.object(detector.client.messages, 'create', side_effect=Exception("API Error")):
+    with patch.object(detector.llm_provider, 'create_message', side_effect=Exception("API Error")):
         result = await detector.detect_scenario(ambiguous_email, serial_result_not_found)
 
         # Should fall back to graceful-degradation on error
@@ -271,10 +273,24 @@ async def test_detect_scenario_error_handling(mock_config, serial_result_not_fou
 
 
 def test_scenario_detector_initialization_missing_api_key():
-    """Test detector raises error if API key not configured."""
-    config = Mock(spec=AgentConfig)
-    config.secrets = Mock()
-    config.secrets.anthropic_api_key = None
+    """Test detector raises error if API key not configured for Gemini."""
+    from guarantee_email_agent.config.schema import LLMConfig, SecretsConfig
 
-    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY not configured"):
+    config = Mock(spec=AgentConfig)
+    config.llm = LLMConfig(
+        provider="gemini",
+        model="gemini-2.0-flash-exp",
+        temperature=0.7,
+        max_tokens=8192,
+        timeout_seconds=15
+    )
+    config.secrets = SecretsConfig(
+        anthropic_api_key=None,
+        gemini_api_key=None,  # Missing!
+        gmail_api_key="test",
+        warranty_api_key="test",
+        ticketing_api_key="test"
+    )
+
+    with pytest.raises(ValueError, match="GEMINI_API_KEY.*required"):
         ScenarioDetector(config, "test instruction")
