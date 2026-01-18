@@ -15,12 +15,16 @@ from guarantee_email_agent.utils.errors import TransientError, LLMError
 logger = logging.getLogger(__name__)
 
 # Serial number regex patterns - matches common formats
-# Note: Must contain at least one digit to be a valid serial (5-15 chars total)
+# Requirements:
+# - 5-15 characters total
+# - Must contain at least one digit AND one alphanumeric
+# - Hyphens allowed for formatting (e.g., ABC-123) but not excessive
+# - Pattern: Alphanumeric blocks with optional single hyphens between
 SERIAL_PATTERNS = [
-    r'(?i)SN[-\s:]?([A-Z0-9-]*\d[A-Z0-9-]*)\b',  # SN12345, SN-ABC123 (must have digit)
-    r'(?i)Serial\s*(?:Number)?[:\s]+([A-Z0-9-]*\d[A-Z0-9-]*)\b',  # Serial: ABC-123 (must have digit)
-    r'(?i)S/N[:\s]+([A-Z0-9-]*\d[A-Z0-9-]*)\b',  # S/N: XYZ789 (must have digit)
-    r'(?i)Serial#[:\s]*([A-Z0-9-]*\d[A-Z0-9-]*)\b',  # Serial#: ABC123 (must have digit)
+    r'(?i)SN[-\s:]?([A-Z0-9]+(?:-[A-Z0-9]+)*)\b',  # SN12345, SN-ABC-123, SNABC123
+    r'(?i)Serial\s*(?:Number)?[:\s]+([A-Z0-9]+(?:-[A-Z0-9]+)*)\b',  # Serial: ABC-123, Serial Number: XYZ789
+    r'(?i)S/N[:\s]+([A-Z0-9]+(?:-[A-Z0-9]+)*)\b',  # S/N: XYZ789, S/N ABC123
+    r'(?i)Serial#[:\s]*([A-Z0-9]+(?:-[A-Z0-9]+)*)\b',  # Serial#: ABC123, Serial# XYZ-789
 ]
 
 
@@ -76,8 +80,11 @@ class SerialNumberExtractor:
         # Try all patterns ((?i) in patterns makes them case-insensitive)
         for pattern in SERIAL_PATTERNS:
             matches = re.findall(pattern, email_body)
-            # Filter to only 5-15 character serials
-            valid_matches = [m for m in matches if 5 <= len(m) <= 15]
+            # Filter to only 5-15 character serials with at least one digit
+            valid_matches = [
+                m for m in matches
+                if 5 <= len(m) <= 15 and re.search(r'\d', m)  # Must have digit
+            ]
             all_matches.extend(valid_matches)
 
         # Deduplicate matches
@@ -157,7 +164,7 @@ class SerialNumberExtractor:
             response = await asyncio.wait_for(
                 asyncio.to_thread(
                     self.client.messages.create,
-                    model="claude-3-5-sonnet-20241022",  # Pinned version per project context
+                    model="claude-sonnet-4-5",  # Current pinned model per architecture
                     max_tokens=100,
                     temperature=0,  # Maximum determinism per NFR1
                     system=system_message,
