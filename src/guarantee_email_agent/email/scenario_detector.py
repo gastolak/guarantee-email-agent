@@ -5,12 +5,12 @@ import logging
 import re
 from typing import Optional
 
-from anthropic import Anthropic
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from guarantee_email_agent.config.schema import AgentConfig
 from guarantee_email_agent.email.models import EmailMessage, SerialExtractionResult
 from guarantee_email_agent.email.processor_models import ScenarioDetectionResult
+from guarantee_email_agent.llm.provider import create_llm_provider, LLMProvider
 from guarantee_email_agent.utils.errors import TransientError, LLMError
 
 logger = logging.getLogger(__name__)
@@ -44,17 +44,13 @@ class ScenarioDetector:
             main_instruction_body: Main instruction for LLM guidance
 
         Raises:
-            ValueError: If ANTHROPIC_API_KEY not configured
+            ValueError: If required API key not configured
         """
         self.config = config
         self.main_instruction_body = main_instruction_body
 
-        # Initialize Anthropic client
-        api_key = config.secrets.anthropic_api_key
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not configured")
-
-        self.client = Anthropic(api_key=api_key)
+        # Initialize LLM provider (Anthropic or Gemini based on config)
+        self.llm_provider = create_llm_provider(config)
 
         logger.info("Scenario detector initialized")
 
@@ -188,23 +184,20 @@ class ScenarioDetector:
                 f"Classify this email:"
             )
 
-            # Call Anthropic API with timeout (NFR11: 15 seconds)
-            response = await asyncio.wait_for(
+            # Call LLM provider with timeout (NFR11: 15 seconds)
+            response_text = await asyncio.wait_for(
                 asyncio.to_thread(
-                    self.client.messages.create,
-                    model="claude-sonnet-4-5",  # Current pinned model per architecture
+                    self.llm_provider.create_message,
+                    system_prompt=system_message,
+                    user_prompt=user_message,
                     max_tokens=50,
-                    temperature=0,  # Maximum determinism per NFR1
-                    system=system_message,
-                    messages=[
-                        {"role": "user", "content": user_message}
-                    ]
+                    temperature=0  # Maximum determinism per NFR1
                 ),
-                timeout=15  # NFR11: 15-second timeout
+                timeout=self.config.llm.timeout_seconds
             )
 
             # Extract classification
-            classification = response.content[0].text.strip().lower()
+            classification = response_text.strip().lower()
 
             logger.debug(f"LLM classification: {classification}")
 

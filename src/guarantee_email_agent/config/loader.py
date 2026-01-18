@@ -168,6 +168,18 @@ def load_config(config_path: str = None) -> AgentConfig:
                 details={"field": f"logging.{e.args[0] if e.args else 'logging'}"}
             )
 
+        # Parse LLM config (optional, uses defaults if not present)
+        llm_config = None
+        if 'llm' in raw_config:
+            try:
+                llm_config = LLMConfig(**raw_config['llm'])
+            except TypeError as e:
+                raise ConfigurationError(
+                    message=f"Invalid llm config: {e}",
+                    code="config_invalid_type",
+                    details={"field": "llm", "error": str(e)}
+                )
+
         # Parse agent runtime config (optional, uses defaults if not present)
         agent_config = None
         if 'agent' in raw_config:
@@ -186,6 +198,7 @@ def load_config(config_path: str = None) -> AgentConfig:
             eval=eval_config,
             logging=logging_config,
             secrets=secrets,
+            llm=llm_config,
             agent=agent_config
         )
     except TypeError as e:

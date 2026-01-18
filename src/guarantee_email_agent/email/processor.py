@@ -126,6 +126,17 @@ class EmailProcessor:
                     f"Email parsed: subject='{email.subject}', from='{email.from_address}'",
                     extra={"email_id": email_id, "step": "parse", "status": "success"},
                 )
+                # NFR14: Customer email body logged ONLY at DEBUG level
+                logger.debug(
+                    f"Email body:\n{email.body}",
+                    extra={"email_id": email_id, "step": "parse"}
+                )
+                # Also log at INFO level with truncated preview
+                body_preview = email.body[:200] + "..." if len(email.body) > 200 else email.body
+                logger.info(
+                    f"Email body preview: {body_preview}",
+                    extra={"email_id": email_id, "step": "parse"}
+                )
             except Exception as e:
                 failed_step = "parse"
                 error_message = f"Email parsing failed: {str(e)}"
@@ -274,6 +285,15 @@ class EmailProcessor:
                         "scenario": scenario_used,
                         "response_length": len(response_text),
                     },
+                )
+                # Log the full response text at INFO level
+                logger.info(
+                    f"Generated response text:\n{response_text}",
+                    extra={
+                        "email_id": email_id,
+                        "step": "generate_response",
+                        "scenario": scenario_used
+                    }
                 )
             except Exception as e:
                 failed_step = "generate_response"

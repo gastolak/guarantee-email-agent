@@ -4,7 +4,6 @@ import asyncio
 import logging
 from typing import Any, Dict, Optional
 
-from anthropic import Anthropic
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -15,6 +14,7 @@ from tenacity import (
 from guarantee_email_agent.config.schema import AgentConfig
 from guarantee_email_agent.instructions.loader import InstructionFile
 from guarantee_email_agent.instructions.router import ScenarioRouter
+from guarantee_email_agent.llm.provider import create_llm_provider, LLMProvider
 from guarantee_email_agent.utils.errors import (
     LLMError,
     LLMTimeoutError,
@@ -45,17 +45,13 @@ class ResponseGenerator:
             main_instruction: Main orchestration instruction
 
         Raises:
-            ValueError: If ANTHROPIC_API_KEY not configured
+            ValueError: If required API key not configured
         """
         self.config = config
         self.main_instruction = main_instruction
 
-        # Initialize Anthropic client
-        api_key = config.secrets.anthropic_api_key
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not configured")
-
-        self.client = Anthropic(api_key=api_key)
+        # Initialize LLM provider (Anthropic or Gemini based on config)
+        self.llm_provider = create_llm_provider(config)
 
         # Initialize scenario router
         self.router = ScenarioRouter(config)
@@ -189,23 +185,17 @@ class ResponseGenerator:
                 warranty_data
             )
 
-            # Call Anthropic API with timeout
-            response = await asyncio.wait_for(
+            # Call LLM provider with timeout
+            response_text = await asyncio.wait_for(
                 asyncio.to_thread(
-                    self.client.messages.create,
-                    model=MODEL_CLAUDE_SONNET_4_5,
+                    self.llm_provider.create_message,
+                    system_prompt=system_message,
+                    user_prompt=user_message,
                     max_tokens=DEFAULT_MAX_TOKENS,
-                    temperature=DEFAULT_TEMPERATURE,
-                    system=system_message,
-                    messages=[
-                        {"role": "user", "content": user_message}
-                    ]
+                    temperature=DEFAULT_TEMPERATURE
                 ),
-                timeout=LLM_TIMEOUT
+                timeout=self.config.llm.timeout_seconds
             )
-
-            # Extract response text
-            response_text = response.content[0].text
 
             # Basic validation
             if not response_text or not response_text.strip():
@@ -218,12 +208,12 @@ class ResponseGenerator:
             logger.info(
                 f"Response generated: scenario={scenario_name}, "
                 f"length={len(response_text)} chars, "
-                f"model={MODEL_CLAUDE_SONNET_4_5}, "
+                f"model={self.config.llm.model}, "
                 f"temp={DEFAULT_TEMPERATURE}",
                 extra={
                     "scenario": scenario_name,
                     "response_length": len(response_text),
-                    "model": MODEL_CLAUDE_SONNET_4_5,
+                    "model": self.config.llm.model,
                     "temperature": DEFAULT_TEMPERATURE
                 }
             )
@@ -232,9 +222,9 @@ class ResponseGenerator:
 
         except asyncio.TimeoutError:
             raise LLMTimeoutError(
-                message=f"LLM response generation timeout ({LLM_TIMEOUT}s)",
+                message=f"LLM response generation timeout ({self.config.llm.timeout_seconds}s)",
                 code="llm_response_timeout",
-                details={"scenario": scenario_name, "timeout": LLM_TIMEOUT}
+                details={"scenario": scenario_name, "timeout": self.config.llm.timeout_seconds}
             )
         except LLMError:
             # Re-raise LLM errors as-is
