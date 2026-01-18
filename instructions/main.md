@@ -5,15 +5,24 @@ version: 1.0.0
 ---
 
 <objective>
-Process warranty inquiry emails by analyzing email content, extracting serial numbers, and determining the appropriate scenario for response generation.
+Process warranty RMA emails for broken/faulty devices by extracting serial numbers, validating warranty status, and creating support tickets for valid warranty claims.
 </objective>
 
 <workflow>
 Follow this workflow for every email:
-1. Analyze email content to understand customer intent
+1. Check if email reports a broken/faulty/malfunctioning device
 2. Extract serial number using the patterns defined below
-3. Determine which scenario applies based on email characteristics
+3. Determine scenario:
+   - Serial number present + device issue = valid-warranty (check warranty API)
+   - No serial number + device issue = missing-info (request serial)
+   - No device issue = graceful-degradation (out of scope)
 4. Return structured output with scenario, serial number, and confidence
+
+**Typical RMA Flow:**
+- Customer reports broken device with serial → validate warranty → create ticket if valid
+- Customer reports broken device without serial → ask for serial number
+- Warranty expired → offer paid repair option
+- Not warranty-related → politely redirect to appropriate channel
 </workflow>
 
 <serial-number-patterns>
@@ -36,36 +45,43 @@ Identify the appropriate scenario based on email characteristics:
 
 **valid-warranty**:
 - Email contains a clear serial number
-- Customer is inquiring about warranty status
-- Intent is to get warranty information
+- Device is reported as broken, not working, or has issues (RMA request)
+- Customer wants warranty service/repair/replacement
+- This is the PRIMARY scenario when serial number is present
 
 **invalid-warranty**:
 - Email contains serial number
-- Customer mentions warranty issue/expiration
-- May be asking about expired warranty
+- Device has issues but warranty validation will fail (expired/not covered)
+- Use this only after warranty API confirms invalid warranty status
 
 **missing-info**:
 - No serial number found in email body
 - Serial number is ambiguous or unclear
 - Multiple serial numbers without clear primary
-- Customer request is unclear
+- Device issue mentioned but no serial provided
 
-**out-of-scope**:
-- Email is not about warranty
-- Spam, unrelated inquiry, or general support question
-- No warranty-related keywords present
+**graceful-degradation**:
+- Email is not about warranty (billing, general support, etc.)
+- Spam or unrelated inquiry
+- No device/warranty-related keywords present
+- Unable to determine intent clearly
 
-Default to **missing-info** if uncertain.
+**Key Rule**: If email mentions broken/faulty device AND contains serial number → **valid-warranty**
+Intent doesn't need to explicitly ask about warranty status - reporting a broken device IS a warranty request.
+
+Default to **missing-info** if device issue mentioned but no serial number found.
 </scenario-detection>
 
 <analysis-guidelines>
-- Be conservative with scenario detection
-- Prefer missing-info over valid-warranty if ambiguous
+- **Primary trigger**: Device reported as broken/faulty/not working + serial number = valid-warranty
+- If serial number is present, assume it's a warranty RMA request (don't require explicit "warranty" mention)
 - Extract exact serial number text, preserve formatting
 - Calculate confidence based on:
   - Serial number clarity (found vs ambiguous)
-  - Intent clarity (warranty vs general question)
+  - Device issue clarity (explicit problem vs vague)
   - Email completeness (sufficient info vs missing context)
+- Keywords indicating device issues: broken, faulty, not working, malfunction, RMA, defective, failed, error, problem
+- **Be aggressive with valid-warranty**: Serial + any device issue keyword = valid-warranty
 </analysis-guidelines>
 
 <output-format>
@@ -83,15 +99,23 @@ Where:
 </output-format>
 
 <examples>
-Example 1 - Valid warranty inquiry:
-Email: "Hi, I need to check the warranty status for serial number SN12345. Thanks!"
-Output: {"scenario": "valid-warranty", "serial_number": "SN12345", "confidence": 0.98}
+Example 1 - RMA with serial (VALID WARRANTY):
+Email: "The gateway C074AD3D3101 is not working correctly. It's in some 'emergency mode' and we can't recover it."
+Output: {"scenario": "valid-warranty", "serial_number": "C074AD3D3101", "confidence": 0.95}
 
-Example 2 - Missing serial number:
-Email: "I bought your product last year and need warranty info. Can you help?"
-Output: {"scenario": "missing-info", "serial_number": null, "confidence": 0.92}
+Example 2 - RMA without serial (MISSING INFO):
+Email: "Our Mediant device stopped working yesterday. Can you help?"
+Output: {"scenario": "missing-info", "serial_number": null, "confidence": 0.90}
 
-Example 3 - Out of scope:
-Email: "How much does your product cost? Where can I buy it?"
-Output: {"scenario": "out-of-scope", "serial_number": null, "confidence": 0.95}
+Example 3 - Device issue with serial (VALID WARRANTY):
+Email: "Reporting RMA for broken device SN-12345. Device won't boot."
+Output: {"scenario": "valid-warranty", "serial_number": "SN-12345", "confidence": 0.98}
+
+Example 4 - Not warranty related (GRACEFUL DEGRADATION):
+Email: "How much does the M500L cost? Where can I purchase it?"
+Output: {"scenario": "graceful-degradation", "serial_number": null, "confidence": 0.95}
+
+Example 5 - Warranty question with serial (VALID WARRANTY):
+Email: "Can you check warranty for serial ABC123? Device has errors."
+Output: {"scenario": "valid-warranty", "serial_number": "ABC123", "confidence": 0.97}
 </examples>
