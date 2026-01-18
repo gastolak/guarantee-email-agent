@@ -98,7 +98,7 @@ version: 1.0.0
             scenarios=[str(scenario_file)]
         ),
         eval=EvalConfig(test_suite_path=str(tmp_path / "evals")),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -128,7 +128,7 @@ def test_verify_instruction_paths_missing_main_file(tmp_path):
             scenarios=[str(scenario_file)]
         ),
         eval=EvalConfig(test_suite_path=str(tmp_path / "evals")),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -168,7 +168,7 @@ version: 1.0.0
             scenarios=[str(missing_scenario)]
         ),
         eval=EvalConfig(test_suite_path=str(tmp_path / "evals")),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -199,7 +199,7 @@ def test_verify_eval_paths_creates_missing_directory(tmp_path):
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path=str(eval_dir)),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -231,7 +231,7 @@ def test_verify_eval_paths_with_existing_directory(tmp_path):
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path=str(eval_dir)),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -260,7 +260,7 @@ def test_verify_eval_paths_invalid_path_is_file(tmp_path):
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path=str(eval_file)),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",

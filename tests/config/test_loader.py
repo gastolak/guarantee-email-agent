@@ -39,8 +39,7 @@ eval:
 
 logging:
   level: "INFO"
-  output: "stdout"
-  file: "./logs/agent.log"
+  json_format: false
     """)
 
     config = load_config(str(config_file))
@@ -93,8 +92,7 @@ eval:
 
 logging:
   level: "INFO"
-  output: "stdout"
-  file: "./logs/agent.log"
+  json_format: false
     """)
 
     with pytest.raises(ConfigurationError) as exc_info:
@@ -126,8 +124,7 @@ eval:
 
 logging:
   level: "INFO"
-  output: "stdout"
-  file: "./logs/agent.log"
+  json_format: false
     """)
 
     config = load_config(str(config_file))
@@ -167,8 +164,7 @@ eval:
 
 logging:
   level: "INFO"
-  output: "stdout"
-  file: "./logs/agent.log"
+  json_format: false
     """)
 
     config = load_config(str(config_file))

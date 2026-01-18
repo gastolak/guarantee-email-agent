@@ -162,15 +162,5 @@ def validate_config(config: AgentConfig) -> None:
             details={"field": "logging.level", "value": config.logging.level, "valid_values": valid_log_levels}
         )
 
-    # Validate log file directory exists (create if needed for fail-fast)
-    log_file_path = Path(config.logging.file)
-    log_dir = log_file_path.parent
-    if not log_dir.exists():
-        try:
-            log_dir.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            raise ConfigurationError(
-                message=f"Cannot create log directory: {log_dir}",
-                code="config_path_not_found",
-                details={"field": "logging.file", "path": str(log_dir), "error": str(e)}
-            )
+    # NFR16: Logs to stdout only (stateless, no file handlers)
+    # No file-based logging validation needed

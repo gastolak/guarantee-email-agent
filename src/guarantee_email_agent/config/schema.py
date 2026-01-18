@@ -36,10 +36,14 @@ class EvalConfig:
 
 @dataclass(frozen=True)
 class LoggingConfig:
-    """Logging configuration."""
-    level: str = "INFO"
-    output: str = "stdout"
-    file: str = "./logs/agent.log"
+    """Logging configuration.
+
+    NFR14: Customer email body logged ONLY at DEBUG level
+    NFR16: Logs to stdout only (stateless, no files)
+    """
+    level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
+    json_format: bool = False  # True for production (machine-readable), False for development
+    log_to_stdout: bool = True  # Always True per NFR16 (stateless)
 
 
 @dataclass(frozen=True)

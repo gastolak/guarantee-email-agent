@@ -142,8 +142,7 @@ eval:
 
 logging:
   level: "INFO"
-  output: "stdout"
-  file: "./logs/agent.log"
+  json_format: false
     """)
 
     monkeypatch.setenv("CONFIG_PATH", str(custom_config))
@@ -179,8 +178,7 @@ eval:
 
 logging:
   level: "INFO"
-  output: "stdout"
-  file: "./logs/agent.log"
+  json_format: false
     """)
 
     config = load_config(str(config_file))

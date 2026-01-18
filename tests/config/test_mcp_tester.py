@@ -67,7 +67,7 @@ def test_validate_mcp_connections_with_valid_config():
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path="evals"),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -93,7 +93,7 @@ def test_validate_mcp_connections_with_invalid_gmail():
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path="evals"),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -122,7 +122,7 @@ def test_validate_mcp_connections_with_invalid_warranty_api():
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path="evals"),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -151,7 +151,7 @@ def test_validate_mcp_connections_with_invalid_ticketing():
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path="evals"),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",

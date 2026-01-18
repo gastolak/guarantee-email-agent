@@ -49,8 +49,8 @@ def create_valid_config(tmp_path):
         ),
         logging=LoggingConfig(
             level="INFO",
-            output="stdout",
-            file=str(logs_dir / "agent.log")
+            json_format=False,
+            log_to_stdout=True
         ),
         secrets=SecretsConfig(
             anthropic_api_key="test-anthropic-key",
@@ -223,7 +223,7 @@ def test_validate_invalid_log_level(tmp_path):
         mcp=create_valid_config(tmp_path).mcp,
         instructions=create_valid_config(tmp_path).instructions,
         eval=create_valid_config(tmp_path).eval,
-        logging=LoggingConfig(level="INVALID", output="stdout", file=str(tmp_path / "logs" / "agent.log")),
+        logging=LoggingConfig(level="INVALID", json_format=False, log_to_stdout=True),
         secrets=create_valid_config(tmp_path).secrets
     )
 
@@ -239,14 +239,11 @@ def test_validate_valid_log_levels(tmp_path):
     valid_levels = ["DEBUG", "INFO", "WARN", "WARNING", "ERROR", "CRITICAL"]
 
     for level in valid_levels:
-        logs_dir = tmp_path / "logs"
-        logs_dir.mkdir(parents=True, exist_ok=True)
-
         config = AgentConfig(
             mcp=create_valid_config(tmp_path).mcp,
             instructions=create_valid_config(tmp_path).instructions,
             eval=create_valid_config(tmp_path).eval,
-            logging=LoggingConfig(level=level, output="stdout", file=str(logs_dir / "agent.log")),
+            logging=LoggingConfig(level=level, json_format=False, log_to_stdout=True),
             secrets=create_valid_config(tmp_path).secrets
         )
         # Should not raise
@@ -255,14 +252,11 @@ def test_validate_valid_log_levels(tmp_path):
 
 def test_validate_log_level_case_insensitive(tmp_path):
     """Test validation accepts log levels in any case."""
-    logs_dir = tmp_path / "logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-
     config = AgentConfig(
         mcp=create_valid_config(tmp_path).mcp,
         instructions=create_valid_config(tmp_path).instructions,
         eval=create_valid_config(tmp_path).eval,
-        logging=LoggingConfig(level="info", output="stdout", file=str(logs_dir / "agent.log")),
+        logging=LoggingConfig(level="info", json_format=False, log_to_stdout=True),
         secrets=create_valid_config(tmp_path).secrets
     )
     # Should not raise (converted to uppercase internally)

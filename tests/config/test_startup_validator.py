@@ -50,7 +50,7 @@ version: 1.0.0
             scenarios=[str(scenario_file)]
         ),
         eval=EvalConfig(test_suite_path=str(eval_dir)),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -80,7 +80,7 @@ def test_validate_startup_fails_on_missing_instruction_file(tmp_path):
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path=str(eval_dir)),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -120,7 +120,7 @@ version: 1.0.0
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path=str(eval_dir)),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -159,7 +159,7 @@ version: 1.0.0
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path=str(eval_dir)),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
@@ -202,7 +202,7 @@ version: 1.0.0
             scenarios=[]
         ),
         eval=EvalConfig(test_suite_path=str(eval_dir)),
-        logging=LoggingConfig(level="INFO", output="stdout"),
+        logging=LoggingConfig(level="INFO", json_format=False),
         secrets=SecretsConfig(
             anthropic_api_key="test-key",
             gmail_api_key="test-gmail",
