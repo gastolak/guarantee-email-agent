@@ -5,7 +5,16 @@ from guarantee_email_agent.config.loader import load_config
 from guarantee_email_agent.utils.errors import ConfigurationError
 
 
-def test_load_valid_config(tmp_path):
+@pytest.fixture
+def mock_env_vars(monkeypatch):
+    """Mock required environment variables for testing."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+    monkeypatch.setenv("GMAIL_API_KEY", "test-gmail-key")
+    monkeypatch.setenv("WARRANTY_API_KEY", "test-warranty-key")
+    monkeypatch.setenv("TICKETING_API_KEY", "test-ticketing-key")
+
+
+def test_load_valid_config(tmp_path, mock_env_vars):
     """Test loading a valid configuration file."""
     config_file = tmp_path / "config.yaml"
     config_file.write_text("""
@@ -44,7 +53,7 @@ logging:
     assert len(config.instructions.scenarios) == 1
 
 
-def test_load_missing_config_file():
+def test_load_missing_config_file(mock_env_vars):
     """Test loading non-existent config file raises error."""
     with pytest.raises(ConfigurationError) as exc_info:
         load_config("nonexistent.yaml")
@@ -53,7 +62,7 @@ def test_load_missing_config_file():
     assert "nonexistent.yaml" in exc_info.value.message
 
 
-def test_load_invalid_yaml(tmp_path):
+def test_load_invalid_yaml(tmp_path, mock_env_vars):
     """Test loading invalid YAML raises error."""
     config_file = tmp_path / "bad_config.yaml"
     config_file.write_text("mcp:\n  gmail: [invalid: yaml: structure")
@@ -65,7 +74,7 @@ def test_load_invalid_yaml(tmp_path):
     assert "not valid YAML" in exc_info.value.message
 
 
-def test_load_missing_required_field(tmp_path):
+def test_load_missing_required_field(tmp_path, mock_env_vars):
     """Test loading config with missing required field raises error."""
     config_file = tmp_path / "incomplete_config.yaml"
     config_file.write_text("""
@@ -94,7 +103,7 @@ logging:
     assert exc_info.value.code == "config_missing_field"
 
 
-def test_load_config_with_optional_fields(tmp_path):
+def test_load_config_with_optional_fields(tmp_path, mock_env_vars):
     """Test loading config where optional fields are handled correctly."""
     config_file = tmp_path / "config.yaml"
     config_file.write_text("""
