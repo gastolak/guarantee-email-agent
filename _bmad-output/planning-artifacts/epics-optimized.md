@@ -92,7 +92,7 @@ So that I have a modern, fast, reproducible Python project foundation ready for 
 **Then** The project is created with src-layout structure: `src/guarantee_email_agent/`
 **And** pyproject.toml exists with Python 3.10+ requirement
 **And** Typer CLI framework is added as dependency with `[all]` extras
-**And** Core dependencies: anthropic>=0.8.0, pyyaml>=6.0, python-dotenv>=1.0.0, httpx>=0.25.0, tenacity>=8.2.0
+**And** Core dependencies: google-generativeai>=0.3.0, anthropic>=0.8.0, pyyaml>=6.0, python-dotenv>=1.0.0, httpx>=0.25.0, tenacity>=8.2.0
 **And** Dev dependencies: pytest>=7.4.0, pytest-asyncio>=0.21.0
 **And** All required directories exist: `src/guarantee_email_agent/{config,email,instructions,integrations,llm,eval,utils}`
 **And** All user content directories exist: `instructions/scenarios/`, `evals/scenarios/`, `mcp_servers/{warranty_mcp_server,ticketing_mcp_server}`
@@ -271,8 +271,9 @@ So that the agent follows a consistent decision-making process defined in editab
 **And** Main instruction defines: email analysis, serial number extraction, scenario detection
 **And** Orchestrator constructs LLM system messages from main instruction
 **And** Main instruction guides LLM to identify scenarios (valid, invalid, missing info)
-**And** Uses Anthropic SDK with temperature=0 for determinism
-**And** Model pinned to `claude-3-5-sonnet-20241022`
+**And** Uses LLM provider abstraction via `create_llm_provider(config)`
+**And** Default provider: Gemini `gemini-2.0-flash-exp` with temperature=0.7
+**And** Alternative provider: Anthropic `claude-3-5-sonnet-20241022` with temperature=0
 **And** Main instruction loading validated on startup
 **And** Failed main instruction loading prevents agent startup
 **And** Orchestrator logs when main instruction loaded with version
@@ -305,8 +306,8 @@ So that all agent behavior is controlled through editable instruction files.
 **And** Response generator in `src/guarantee_email_agent/llm/response_generator.py` constructs LLM prompts
 **And** System message includes: main instruction + scenario instruction
 **And** User message includes: email content, serial number, warranty API response
-**And** LLM calls use temperature=0 for maximum determinism
-**And** LLM calls use pinned model `claude-3-5-sonnet-20241022`
+**And** LLM calls use configured provider (default: Gemini `gemini-2.0-flash-exp`, temp=0.7)
+**And** Alternative provider available: Anthropic `claude-3-5-sonnet-20241022`, temp=0
 **And** Each LLM call has 15-second timeout (NFR11)
 **And** LLM failures trigger retry with max 3 attempts
 **And** After 3 failed attempts, email marked unprocessed
