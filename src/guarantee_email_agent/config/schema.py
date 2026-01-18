@@ -24,6 +24,7 @@ class InstructionsConfig:
     """Instruction file paths configuration."""
     main: str
     scenarios: tuple  # Changed from List to tuple for immutability
+    scenarios_dir: str = "instructions/scenarios"  # Directory for scenario instruction files
 
 
 @dataclass(frozen=True)
