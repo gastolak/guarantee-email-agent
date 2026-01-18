@@ -1286,6 +1286,70 @@ uv run python -m guarantee_email_agent run --config config.yaml --once
 - Production-ready Gemini configuration
 - Proper safety settings implementation
 
+#### Commit 0952b2f (2026-01-18 16:51): Update main orchestration instruction for RMA workflow
+
+**Changes:**
+- Modified: `instructions/main.md` (+49 lines, -25 lines)
+
+**Details:**
+
+**Redefined scenario detection to focus on RMA (broken device) workflow:**
+
+1. **Updated valid-warranty scenario trigger:**
+   - Before: Email contains serial + "intent is to get warranty information"
+   - After: Email contains serial + device issue reported (broken/faulty/not working)
+   - Removed explicit warranty intent requirement
+   - **Key Rule**: Serial number + any device issue = valid-warranty
+
+2. **Added device issue keywords:**
+   - broken, faulty, not working, malfunction, RMA, defective, failed, error, problem
+   - Keywords trigger warranty RMA processing
+   - More aggressive valid-warranty detection
+
+3. **Updated objective and workflow:**
+   - Objective: "Process warranty RMA emails for broken/faulty devices..."
+   - Workflow now emphasizes: device issue + serial = validate warranty
+   - Added typical RMA flow documentation
+   - Clarified that reporting broken device IS a warranty request
+
+4. **Renamed out-of-scope to graceful-degradation:**
+   - Aligns with actual scenario implementation
+   - Used for non-warranty emails (billing, general support, spam)
+
+5. **Updated examples to real RMA scenarios:**
+   - Example 1: Polish RMA email with C074AD3D3101 serial
+   - Example 2: RMA without serial (missing-info)
+   - Example 3: Device issue with serial (valid-warranty)
+   - Example 4: Non-warranty inquiry (graceful-degradation)
+   - Example 5: Warranty check with device errors
+
+**Impact:**
+- ✅ Polish RMA email now correctly detected as **valid-warranty** (was graceful-degradation)
+- ✅ Serial extracted: C074AD3D3101
+- ✅ Scenario confidence: 0.85
+- ✅ Response acknowledges RMA: "We have logged this as a valid warranty claim..."
+- ✅ More accurate for real-world RMA workflows
+
+**Testing Results:**
+```
+Serial extraction: C074AD3D3101 ✅
+Scenario detected: valid-warranty (confidence=0.85) ✅
+Response: "logged this as a valid warranty claim" ✅
+Processing time: 8.6 seconds ✅
+```
+
+**Rationale:**
+- Most warranty emails report broken devices, not ask about warranty status
+- Users submit serial numbers expecting warranty validation and RMA processing
+- Intent doesn't need to explicitly mention "warranty" - broken device IS the warranty request
+- This aligns with actual customer behavior in RMA scenarios
+
+**Architecture Alignment:**
+- Improves scenario detection accuracy for real-world RMA workflows
+- Reduces false negatives (broken device + serial should always be valid-warranty)
+- Better alignment with graceful degradation principles
+- Supports Story 3.2 scenario routing enhancements
+
 ### File List
 
 **Logging Utilities:**
