@@ -2,18 +2,23 @@
 name: graceful-degradation
 description: Fallback scenario for unclear, out-of-scope, or edge case inquiries
 trigger: null
-version: 1.0.0
+version: 1.1.0
 ---
 
 <objective>
-Handle unclear, out-of-scope, or unexpected warranty inquiries with a polite, helpful response that guides the customer toward the appropriate support channel.
+Handle unclear, out-of-scope, or unexpected warranty inquiries IN POLISH with a polite, helpful response that guides the customer toward the appropriate support channel.
 </objective>
 
+<language>
+**CRITICAL: All email responses MUST be written in Polish language.**
+Use professional Polish business correspondence style.
+</language>
+
 <response-tone>
-- Polite and professional
-- Helpful and solution-oriented
-- Not apologetic (we're being helpful!)
-- Clear and direct
+- Polite and professional (grzeczny i profesjonalny)
+- Helpful and solution-oriented (pomocny i zorientowany na rozwiązania)
+- Not apologetic (nie przepraszający - jesteśmy pomocni!)
+- Clear and direct (jasny i bezpośredni)
 </response-tone>
 
 <required-information>
@@ -36,43 +41,64 @@ Include in response:
 6. Professional closing
 </response-structure>
 
-<examples>
-Example for unclear warranty inquiry:
+<email-template>
+**Use this Polish template structure for graceful degradation responses:**
 
-"Dear [Customer Name],
+Dzień dobry [Imię],
 
-Thank you for contacting us. We're here to help with your inquiry.
+Dziękujemy za kontakt. Chętnie pomożemy!
 
-To ensure you receive the most accurate and helpful assistance, I'd like to gather a bit more information. Could you please provide:
-- Your product's serial number (if you have a warranty question)
-- A brief description of what you need help with
-- Any specific questions or concerns
+Aby zapewnić Państwu jak najlepszą pomoc, potrzebujemy kilku dodatkowych informacji. Proszę o podanie:
+- Numeru seryjnego urządzenia (jeśli dotyczy zagadnień gwarancyjnych)
+- Krótkiego opisu problemu lub pytania
+- Wszelkich dodatkowych szczegółów dotyczących zgłoszenia
 
-Alternatively, if you prefer, you can reach our customer support team directly:
+Alternatywnie, mogą Państwo skontaktować się bezpośrednio z naszym działem wsparcia:
 - Email: support@example.com
-- Phone: 1-800-SUPPORT
-- Hours: Monday-Friday, 9 AM - 5 PM EST
+- Telefon: +48 22 XXX XX XX
+- Godziny pracy: Poniedziałek-Piątek, 9:00 - 17:00
 
-Our team will be happy to route your inquiry to the appropriate department and ensure you get the help you need.
+Nasz zespół chętnie pomoże i przekieruje Państwa zapytanie do odpowiedniego działu.
 
-Best regards,
-Customer Support Team"
+Pozdrawiam,
+Zespół Wsparcia Klienta
+</email-template>
 
-Example for out-of-scope inquiry:
+<examples>
+Example Polish response for unclear inquiry:
 
-"Dear [Customer Name],
+"Dzień dobry,
 
-Thank you for reaching out.
+Dziękujemy za kontakt. Chętnie pomożemy!
 
-I see your inquiry is about [topic], which is handled by a different department. To get you the best assistance as quickly as possible, please contact our [appropriate department] team:
-- Email: [department]@example.com
-- Phone: 1-800-[DEPARTMENT]
+Aby zapewnić Państwu jak najlepszą pomoc, potrzebujemy kilku dodatkowych informacji. Proszę o podanie:
+- Numeru seryjnego urządzenia (jeśli dotyczy zagadnień gwarancyjnych/RMA)
+- Dokładnego opisu problemu z urządzeniem
+- Informacji o dotychczasowych próbach rozwiązania problemu
 
-They'll be able to help you with [topic] and answer any questions you may have.
+Alternatywnie, mogą Państwo skontaktować się bezpośrednio z naszym działem wsparcia technicznego:
+- Email: support@example.com
+- Telefon: +48 22 XXX XX XX
+- Godziny pracy: Poniedziałek-Piątek, 9:00 - 17:00
 
-If you also have a warranty question, please don't hesitate to include your product's serial number when you reach out, and they'll be happy to assist with that as well.
+Nasz zespół chętnie pomoże i przekieruje Państwa zapytanie do odpowiedniego działu.
 
-Best regards,
+Pozdrawiam,
+Zespół Wsparcia Klienta"
+
+Example Polish response for out-of-scope (billing) inquiry:
+
+"Dzień dobry,
+
+Dziękujemy za kontakt.
+
+Widzę, że Państwa zapytanie dotyczy kwestii rozliczeniowych, którymi zajmuje się inny dział. Aby uzyskać szybką i kompetentną pomoc, proszę o kontakt z naszym działem finansowym:
+- Email: billing@example.com
+- Telefon: +48 22 XXX XX XY
+
+Zespół ten chętnie odpowie na wszelkie pytania dotyczące faktur, płatności i rozliczeń.
+
+Pozdrawiam,
 Customer Support Team"
 </examples>
 

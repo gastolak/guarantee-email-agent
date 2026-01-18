@@ -2,18 +2,23 @@
 name: valid-warranty
 description: Response instructions for valid warranty inquiries
 trigger: valid-warranty
-version: 1.0.0
+version: 1.1.0
 ---
 
 <objective>
-Generate a professional, helpful response confirming the customer's warranty is valid and providing next steps for service.
+Generate a professional, helpful response IN POLISH confirming the customer's warranty is valid and providing next steps for RMA service.
 </objective>
 
+<language>
+**CRITICAL: All email responses MUST be written in Polish language.**
+Use professional Polish business correspondence style.
+</language>
+
 <response-tone>
-- Professional and reassuring
-- Positive and helpful
-- Clear and action-oriented
-- Warm but business-appropriate
+- Professional and reassuring (profesjonalny i uspokajający)
+- Positive and helpful (pozytywny i pomocny)
+- Clear and action-oriented (jasny i zorientowany na działanie)
+- Warm but business-appropriate (ciepły ale odpowiedni dla biznesu)
 </response-tone>
 
 <required-information>
@@ -36,24 +41,44 @@ Include in response:
 6. Professional closing with signature
 </response-structure>
 
+<email-template>
+**Use this Polish template structure for valid warranty responses:**
+
+Dzień dobry [Imię],
+
+Dziękujemy za kontakt w sprawie RMA dla urządzenia o numerze seryjnym {serial_number}.
+
+Z przyjemnością potwierdzam, że gwarancja na to urządzenie jest **ważna i aktywna do dnia {warranty_expiration_date}**. Gwarancja obejmuje wady produkcyjne oraz usterki sprzętowe powstałe podczas normalnego użytkowania.
+
+Aby kontynuować proces RMA, utworzymy zgłoszenie serwisowe. Nasz zespół techniczny skontaktuje się z Państwem w ciągu 24 godzin w celu ustalenia dalszych kroków naprawy lub wymiany urządzenia.
+
+W razie pytań lub potrzeby pilnej pomocy, prosimy o kontakt:
+- Email: support@example.com
+- Telefon: +48 22 XXX XX XX
+
+Pozdrawiam,
+Zespół Wsparcia Gwarancyjnego
+</email-template>
+
 <examples>
-Example of a good valid warranty response:
+Example Polish response for valid warranty with RMA:
 
-"Dear [Customer Name],
+"Dzień dobry Adam,
 
-Thank you for contacting us regarding your warranty inquiry for serial number SN12345.
+Dziękujemy za kontakt w sprawie RMA dla bramki Mediant o numerze seryjnym C074AD3D3101.
 
-I'm pleased to confirm that your warranty is valid and active until December 31, 2025. Your warranty covers all manufacturing defects and hardware failures occurring under normal use conditions.
+Z przyjemnością potwierdzam, że gwarancja na to urządzenie jest **ważna i aktywna do dnia 18 stycznia 2027**. Gwarancja obejmuje wady produkcyjne oraz usterki sprzętowe powstałe podczas normalnego użytkowania.
 
-To proceed with a warranty claim, please follow these steps:
-1. Visit our warranty portal at warranty.example.com
-2. Submit a claim using your serial number SN12345
-3. Our service team will contact you within 24 hours to arrange next steps
+Aby kontynuować proces RMA, utworzymy zgłoszenie serwisowe. Nasz zespół techniczny skontaktuje się z Państwem w ciągu 24 godzin w celu ustalenia dalszych kroków naprawy lub wymiany urządzenia.
 
-If you have any questions or need immediate assistance, please don't hesitate to reach out to our support team at support@example.com or call 1-800-WARRANTY.
+Rozumiemy również Państwa sugestię dotyczącą możliwości wymiany urządzenia M500Li na standardowy model M500 lub M500L. Nasz zespół inżynierski rozważy tę opcję podczas procesu RMA.
 
-Best regards,
-Warranty Support Team"
+W razie pytań lub potrzeby pilnej pomocy, prosimy o kontakt:
+- Email: support@example.com
+- Telefon: +48 22 XXX XX XX
+
+Pozdrawiam,
+Zespół Wsparcia Gwarancyjnego"
 </examples>
 
 <avoid>

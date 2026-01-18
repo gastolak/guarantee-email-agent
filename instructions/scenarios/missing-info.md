@@ -2,18 +2,23 @@
 name: missing-info
 description: Response for requests missing serial number or required information
 trigger: missing-info
-version: 1.0.0
+version: 1.1.0
 ---
 
 <objective>
-Politely request the missing information needed to process the warranty inquiry, specifically the product serial number.
+Politely request IN POLISH the missing information needed to process the warranty inquiry, specifically the product serial number.
 </objective>
 
+<language>
+**CRITICAL: All email responses MUST be written in Polish language.**
+Use professional Polish business correspondence style.
+</language>
+
 <response-tone>
-- Polite and patient
-- Helpful and guiding
-- Clear and specific
-- Appreciative of their contact
+- Polite and patient (grzeczny i cierpliwy)
+- Helpful and guiding (pomocny i prowadzący)
+- Clear and specific (jasny i konkretny)
+- Appreciative of their contact (doceniający kontakt)
 </response-tone>
 
 <required-information>
@@ -41,29 +46,54 @@ Include in response:
 7. Professional closing
 </response-structure>
 
+<email-template>
+**Use this Polish template structure for missing-info responses:**
+
+Dzień dobry [Imię],
+
+Dziękujemy za kontakt w sprawie zgłoszenia RMA. Chętnie pomożemy!
+
+Aby sprawdzić status gwarancji i przetworzyć Państwa zgłoszenie, potrzebujemy **numeru seryjnego urządzenia**. Ten unikalny identyfikator pozwoli nam na weryfikację szczegółów gwarancji.
+
+**Numer seryjny można znaleźć w następujących miejscach:**
+- Na naklejce lub etykiecie na samym urządzeniu (zwykle na spodzie, z tyłu lub wewnątrz komory baterii)
+- Na oryginalnym opakowaniu produktu
+- Na fakturze zakupu lub paragonie
+- W dokumentacji produktu lub instrukcji obsługi
+
+Numer seryjny zazwyczaj składa się z kombinacji liter i cyfr (np. C074AD3D3101, SN12345).
+
+Proszę o odpowiedź na tę wiadomość z numerem seryjnym, a natychmiast sprawdzimy status gwarancji i pomożemy w dalszym procesie.
+
+Jeśli będą Państwo mieli problem ze znalezieniem numeru seryjnego, proszę dać znać - chętnie pomożemy.
+
+Pozdrawiam,
+Zespół Wsparcia Gwarancyjnego
+</email-template>
+
 <examples>
-Example of a good missing-info response:
+Example Polish response for missing serial number:
 
-"Dear [Customer Name],
+"Dzień dobry,
 
-Thank you for contacting us regarding your warranty inquiry. We're here to help!
+Dziękujemy za kontakt w sprawie zgłoszenia RMA dla bramki Mediant. Chętnie pomożemy!
 
-To check your warranty status and provide you with accurate information, I'll need your product's serial number. This unique identifier allows us to look up your specific warranty details.
+Aby sprawdzić status gwarancji i przetworzyć Państwa zgłoszenie, potrzebujemy **numeru seryjnego urządzenia**. Ten unikalny identyfikator pozwoli nam na weryfikację szczegółów gwarancji.
 
-You can find your serial number in several places:
-- On a label or sticker on the product itself (usually on the bottom, back, or inside the battery compartment)
-- On the original product packaging or box
-- On your purchase receipt or invoice
-- In the product manual or documentation
+**Numer seryjny można znaleźć w następujących miejscach:**
+- Na naklejce lub etykiecie na samym urządzeniu (zwykle na spodzie, z tyłu lub wewnątrz obudowy)
+- Na oryginalnym opakowaniu produktu
+- Na fakturze zakupu
+- W dokumentacji produktu (Quick Start Guide)
 
-The serial number typically starts with "SN" and contains a combination of letters and numbers (e.g., SN12345).
+Dla urządzeń Mediant, numer seryjny zazwyczaj składa się z 12 znaków alfanumerycznych (np. C074AD3D3101).
 
-Once you locate your serial number, please reply to this email with it, and I'll be happy to check your warranty status right away.
+Proszę o odpowiedź na tę wiadomość z numerem seryjnym, a natychmiast sprawdzimy status gwarancji i pomożemy w dalszym procesie RMA.
 
-If you have any trouble finding the serial number, please don't hesitate to let me know, and I'll provide additional guidance.
+Jeśli będą Państwo mieli problem ze znalezieniem numeru seryjnego, proszę dać znać - chętnie pomożemy.
 
-Best regards,
-Warranty Support Team"
+Pozdrawiam,
+Zespół Wsparcia Gwarancyjnego"
 </examples>
 
 <avoid>
