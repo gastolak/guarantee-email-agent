@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -12,6 +13,33 @@ from guarantee_email_agent.config.schema import AgentConfig, LLMConfig
 from guarantee_email_agent.utils.errors import LLMError
 
 logger = logging.getLogger(__name__)
+
+
+def clean_markdown_response(text: str) -> str:
+    """Clean markdown formatting from LLM responses.
+
+    Removes common markdown artifacts that some LLMs (especially Gemini)
+    add to their responses, such as code blocks, bold/italic markers, etc.
+
+    Args:
+        text: Raw LLM response text
+
+    Returns:
+        Cleaned text with markdown removed
+    """
+    if not text:
+        return text
+
+    # Remove markdown code blocks (```language and ```)
+    text = re.sub(r'^```[\w]*\n?', '', text, flags=re.MULTILINE)
+    text = re.sub(r'\n?```$', '', text, flags=re.MULTILINE)
+
+    # Remove inline code blocks (single backticks) if they wrap the entire response
+    text = text.strip()
+    if text.startswith('`') and text.endswith('`') and text.count('`') == 2:
+        text = text[1:-1]
+
+    return text.strip()
 
 
 class LLMProvider(ABC):
@@ -116,7 +144,20 @@ class GeminiProvider(LLMProvider):
         """
         super().__init__(config)
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(config.model)
+
+        # Configure safety settings to be less restrictive
+        # Warranty emails should not trigger safety filters
+        safety_settings = {
+            'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+            'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+            'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+            'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+        }
+
+        self.model = genai.GenerativeModel(
+            config.model,
+            safety_settings=safety_settings
+        )
         logger.info(f"Gemini provider initialized: model={config.model}")
 
     def create_message(
@@ -155,7 +196,15 @@ class GeminiProvider(LLMProvider):
                 generation_config=generation_config
             )
 
-            return response.text
+            # Clean markdown formatting from response (Gemini often adds ``` blocks)
+            raw_text = response.text
+            cleaned_text = clean_markdown_response(raw_text)
+
+            # Log if cleaning was needed
+            if cleaned_text != raw_text:
+                logger.debug(f"Cleaned Gemini response: '{raw_text}' -> '{cleaned_text}'")
+
+            return cleaned_text
         except Exception as e:
             raise LLMError(
                 message=f"Gemini API error: {e}",
