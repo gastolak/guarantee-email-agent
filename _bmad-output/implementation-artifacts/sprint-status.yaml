@@ -18,8 +18,8 @@ development_status:
   epic-1-retrospective: backlog
 
   # Epic 2: MCP Integration Layer
-  epic-2: backlog
-  2-1-gmail-mcp-client-with-retry-logic: backlog
+  epic-2: in-progress
+  2-1-all-mcp-clients-with-retry-logic-and-circuit-breaker: ready-for-dev
   2-2-warranty-api-custom-mcp-server-and-client: backlog
   2-3-ticketing-system-custom-mcp-server-and-client: backlog
   2-4-circuit-breaker-pattern-for-mcp-failures: backlog
