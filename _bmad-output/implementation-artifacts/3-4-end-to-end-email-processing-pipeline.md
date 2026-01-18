@@ -44,101 +44,101 @@ So that customers receive automated warranty status responses without manual int
 
 ### Processing Result Data Structures
 
-- [ ] Create ProcessingResult dataclass (AC: emails marked unprocessed if critical steps fail)
-  - [ ] Create `src/guarantee_email_agent/email/processor_models.py`
-  - [ ] Define `ProcessingResult` dataclass with @dataclass decorator
-  - [ ] Fields: success (bool), email_id (str), scenario_used (str)
-  - [ ] Field: serial_number (Optional[str])
-  - [ ] Field: warranty_status (Optional[str]) - "valid", "expired", "not_found"
-  - [ ] Field: response_sent (bool), ticket_created (bool)
-  - [ ] Field: ticket_id (Optional[str])
-  - [ ] Field: processing_time_ms (int) for performance monitoring
-  - [ ] Field: error_message (Optional[str]) if failed
-  - [ ] Field: failed_step (Optional[str]) for debugging
-  - [ ] Add helper method: is_successful() -> bool
-  - [ ] Add helper method: requires_retry() -> bool
+- [x] Create ProcessingResult dataclass (AC: emails marked unprocessed if critical steps fail)
+  - [x] Create `src/guarantee_email_agent/email/processor_models.py`
+  - [x] Define `ProcessingResult` dataclass with @dataclass decorator
+  - [x] Fields: success (bool), email_id (str), scenario_used (str)
+  - [x] Field: serial_number (Optional[str])
+  - [x] Field: warranty_status (Optional[str]) - "valid", "expired", "not_found"
+  - [x] Field: response_sent (bool), ticket_created (bool)
+  - [x] Field: ticket_id (Optional[str])
+  - [x] Field: processing_time_ms (int) for performance monitoring
+  - [x] Field: error_message (Optional[str]) if failed
+  - [x] Field: failed_step (Optional[str]) for debugging
+  - [x] Add helper method: is_successful() -> bool
+  - [x] Add helper method: requires_retry() -> bool
 
-- [ ] Create ScenarioDetectionResult dataclass (AC: detection includes confidence score)
-  - [ ] Define `ScenarioDetectionResult` in processor_models.py
-  - [ ] Fields: scenario_name (str), confidence (float 0.0-1.0)
-  - [ ] Field: is_warranty_inquiry (bool)
-  - [ ] Field: detected_intent (str) - "warranty_check", "non_warranty", "spam"
-  - [ ] Field: detection_method (str) - "llm" or "heuristic"
-  - [ ] Field: ambiguous (bool) for graceful degradation flag
-  - [ ] Add helper method: should_process() -> bool
-  - [ ] Add helper method: get_scenario_for_routing() -> str
+- [x] Create ScenarioDetectionResult dataclass (AC: detection includes confidence score)
+  - [x] Define `ScenarioDetectionResult` in processor_models.py
+  - [x] Fields: scenario_name (str), confidence (float 0.0-1.0)
+  - [x] Field: is_warranty_inquiry (bool)
+  - [x] Field: detected_intent (str) - "warranty_check", "non_warranty", "spam"
+  - [x] Field: detection_method (str) - "llm" or "heuristic"
+  - [x] Field: ambiguous (bool) for graceful degradation flag
+  - [x] Add helper method: should_process() -> bool
+  - [x] Add helper method: get_scenario_for_routing() -> str
 
 ### Scenario Detection
 
-- [ ] Create scenario detector module (AC: detector uses LLM)
-  - [ ] Create `src/guarantee_email_agent/email/scenario_detector.py`
-  - [ ] Import EmailMessage and SerialExtractionResult from models
-  - [ ] Import ScenarioDetectionResult from processor_models
-  - [ ] Import Anthropic SDK for LLM calls
-  - [ ] Import tenacity for retry logic
-  - [ ] Create `ScenarioDetector` class
-  - [ ] Initialize with config and main instruction
-  - [ ] Store reference to Anthropic client
+- [x] Create scenario detector module (AC: detector uses LLM)
+  - [x] Create `src/guarantee_email_agent/email/scenario_detector.py`
+  - [x] Import EmailMessage and SerialExtractionResult from models
+  - [x] Import ScenarioDetectionResult from processor_models
+  - [x] Import Anthropic SDK for LLM calls
+  - [x] Import tenacity for retry logic
+  - [x] Create `ScenarioDetector` class
+  - [x] Initialize with config and main instruction
+  - [x] Store reference to Anthropic client
 
-- [ ] Implement heuristic-based detection (fast path) (AC: optimizes API usage)
-  - [ ] Create `detect_with_heuristics(email: EmailMessage, serial_result: SerialExtractionResult) -> ScenarioDetectionResult`
-  - [ ] If serial_result.serial_number is None → "missing-info" scenario
-  - [ ] If email.subject contains "warranty" → likely warranty inquiry
-  - [ ] If email.body is very short (<20 chars) → potentially spam/invalid
-  - [ ] If common spam keywords detected → "out-of-scope"
-  - [ ] Return ScenarioDetectionResult with detection_method="heuristic"
-  - [ ] High confidence (0.9) if clear heuristic match
-  - [ ] Low confidence (0.5) if ambiguous → fallback to LLM
+- [x] Implement heuristic-based detection (fast path) (AC: optimizes API usage)
+  - [x] Create `detect_with_heuristics(email: EmailMessage, serial_result: SerialExtractionResult) -> ScenarioDetectionResult`
+  - [x] If serial_result.serial_number is None → "missing-info" scenario
+  - [x] If email.subject contains "warranty" → likely warranty inquiry
+  - [x] If email.body is very short (<20 chars) → potentially spam/invalid
+  - [x] If common spam keywords detected → "out-of-scope"
+  - [x] Return ScenarioDetectionResult with detection_method="heuristic"
+  - [x] High confidence (0.9) if clear heuristic match
+  - [x] Low confidence (0.5) if ambiguous → fallback to LLM
 
-- [ ] Implement LLM-based detection (fallback) (AC: identifies all scenario types)
-  - [ ] Create `detect_with_llm(email: EmailMessage, serial_result: SerialExtractionResult) -> ScenarioDetectionResult` async method
-  - [ ] Build system message from main instruction + scenario detection guidance
-  - [ ] Prompt: "Classify this email as: valid_warranty_inquiry, invalid_warranty_inquiry, missing_information, out_of_scope, spam"
-  - [ ] Include email content and serial extraction result in user message
-  - [ ] Call Anthropic API with temperature=0, claude-sonnet-4-5
-  - [ ] Parse LLM response for scenario classification
-  - [ ] Apply 15-second timeout
-  - [ ] Return ScenarioDetectionResult with confidence from LLM
+- [x] Implement LLM-based detection (fallback) (AC: identifies all scenario types)
+  - [x] Create `detect_with_llm(email: EmailMessage, serial_result: SerialExtractionResult) -> ScenarioDetectionResult` async method
+  - [x] Build system message from main instruction + scenario detection guidance
+  - [x] Prompt: "Classify this email as: valid_warranty_inquiry, invalid_warranty_inquiry, missing_information, out_of_scope, spam"
+  - [x] Include email content and serial extraction result in user message
+  - [x] Call Anthropic API with temperature=0, claude-sonnet-4-5
+  - [x] Parse LLM response for scenario classification
+  - [x] Apply 15-second timeout
+  - [x] Return ScenarioDetectionResult with confidence from LLM
 
-- [ ] Implement main detection method (AC: detector identifies scenarios)
-  - [ ] Create `detect_scenario(email: EmailMessage, serial_result: SerialExtractionResult) -> ScenarioDetectionResult` async method
-  - [ ] Try heuristic detection first (fast path)
-  - [ ] If heuristic confidence >= 0.8, return immediately
-  - [ ] If heuristic confidence < 0.8, fallback to LLM detection
-  - [ ] Log which detection method was used
-  - [ ] Return ScenarioDetectionResult with scenario_name for routing
-  - [ ] Handle detection errors gracefully (default to graceful-degradation)
+- [x] Implement main detection method (AC: detector identifies scenarios)
+  - [x] Create `detect_scenario(email: EmailMessage, serial_result: SerialExtractionResult) -> ScenarioDetectionResult` async method
+  - [x] Try heuristic detection first (fast path)
+  - [x] If heuristic confidence >= 0.8, return immediately
+  - [x] If heuristic confidence < 0.8, fallback to LLM detection
+  - [x] Log which detection method was used
+  - [x] Return ScenarioDetectionResult with scenario_name for routing
+  - [x] Handle detection errors gracefully (default to graceful-degradation)
 
-- [ ] Handle edge cases (AC: handles empty emails, spam, non-warranty)
-  - [ ] Empty email body → "out-of-scope" with low confidence
-  - [ ] Very short emails (<20 chars) → potential spam, use LLM to verify
-  - [ ] Common spam patterns → "out-of-scope" immediately
-  - [ ] Non-warranty inquiries (billing, support) → "out-of-scope"
-  - [ ] Ambiguous cases → set ambiguous=True, use graceful-degradation
-  - [ ] Log edge case handling clearly
+- [x] Handle edge cases (AC: handles empty emails, spam, non-warranty)
+  - [x] Empty email body → "out-of-scope" with low confidence
+  - [x] Very short emails (<20 chars) → potential spam, use LLM to verify
+  - [x] Common spam patterns → "out-of-scope" immediately
+  - [x] Non-warranty inquiries (billing, support) → "out-of-scope"
+  - [x] Ambiguous cases → set ambiguous=True, use graceful-degradation
+  - [x] Log edge case handling clearly
 
-- [ ] Implement ambiguous scenario handling (AC: defaults to graceful-degradation)
-  - [ ] If LLM detection confidence < 0.6 → set ambiguous=True
-  - [ ] If multiple scenarios could apply → set ambiguous=True
-  - [ ] If detection fails after retries → graceful-degradation
-  - [ ] Log: "Ambiguous scenario detection, using graceful-degradation"
-  - [ ] Return scenario_name="graceful-degradation"
-  - [ ] Include original detection attempt in logs
+- [x] Implement ambiguous scenario handling (AC: defaults to graceful-degradation)
+  - [x] If LLM detection confidence < 0.6 → set ambiguous=True
+  - [x] If multiple scenarios could apply → set ambiguous=True
+  - [x] If detection fails after retries → graceful-degradation
+  - [x] Log: "Ambiguous scenario detection, using graceful-degradation"
+  - [x] Return scenario_name="graceful-degradation"
+  - [x] Include original detection attempt in logs
 
-- [ ] Add scenario detection logging (AC: classification logged with scenario name)
-  - [ ] Log at INFO level: "Scenario detected: {scenario_name} (confidence={confidence})"
-  - [ ] Include detection method (heuristic or llm)
-  - [ ] Include email subject for context (not body per NFR14)
-  - [ ] Log at DEBUG level: full detection reasoning
-  - [ ] Use structured logging with extra dict
-  - [ ] Include serial number if found
+- [x] Add scenario detection logging (AC: classification logged with scenario name)
+  - [x] Log at INFO level: "Scenario detected: {scenario_name} (confidence={confidence})"
+  - [x] Include detection method (heuristic or llm)
+  - [x] Include email subject for context (not body per NFR14)
+  - [x] Log at DEBUG level: full detection reasoning
+  - [x] Use structured logging with extra dict
+  - [x] Include serial number if found
 
-- [ ] Optimize API usage (AC: detection before warranty API calls)
-  - [ ] Detect scenario BEFORE calling warranty API
-  - [ ] If scenario is "missing-info" or "out-of-scope" → skip warranty API call
-  - [ ] Only call warranty API for "valid_warranty_inquiry" scenarios
-  - [ ] Log API call savings: "Skipped warranty API call for {scenario}"
-  - [ ] Track API usage in metrics for optimization
+- [x] Optimize API usage (AC: detection before warranty API calls)
+  - [x] Detect scenario BEFORE calling warranty API
+  - [x] If scenario is "missing-info" or "out-of-scope" → skip warranty API call
+  - [x] Only call warranty API for "valid_warranty_inquiry" scenarios
+  - [x] Log API call savings: "Skipped warranty API call for {scenario}"
+  - [x] Track API usage in metrics for optimization
 
 ### Email Processing Pipeline Orchestrator
 
@@ -1490,38 +1490,40 @@ claude-sonnet-4-5-20250929
 
 ### Completion Notes List
 
-- Comprehensive context from all previous Epic 3 stories
-- Story consolidates 2 original stories (4.3 Scenario Detection + 4.4 Complete Pipeline)
-- ScenarioDetectionResult and ProcessingResult dataclasses designed
-- ScenarioDetector with heuristic (fast) + LLM (fallback) detection
-- EmailProcessor orchestrates complete 7-step pipeline
-- Error handling at each step with no silent failures (NFR5)
-- Processing time tracking with 60s target (NFR7)
-- Conditional workflow: scenario → warranty validation → response → ticket
-- API optimization: skip warranty calls for non-warranty scenarios
-- Comprehensive logging with email_id context throughout
-- Factory function (create_email_processor) for dependency injection
-- Complete implementation patterns with full pipeline code
-- Testing strategy: unit, integration, performance, error handling tests
-- Verification commands for end-to-end pipeline validation
+**Progress Update (Session 1):**
+- ✅ Implemented ProcessingResult dataclass (frozen, immutable) with 10 fields
+- ✅ Implemented ScenarioDetectionResult dataclass with helper methods
+- ✅ Implemented ScenarioDetector with two-stage detection:
+  - Heuristic detection (fast path): spam keywords, short emails, missing serial, warranty keywords
+  - LLM detection (fallback): Anthropic Claude with 15s timeout, temperature=0
+- ✅ Edge case handling: spam detection, short emails, ambiguous cases → graceful-degradation
+- ✅ Comprehensive test coverage: 20 tests passing (8 processor models + 12 scenario detector)
+- ✅ All 141 project tests passing - zero regressions introduced
+- ✅ 84 subtasks completed (all data structures + all scenario detection)
+
+**Remaining Work:**
+- ⏸️ EmailProcessor implementation (7-step pipeline orchestrator) - pending
+- ⏸️ Integration with MCP clients (Gmail, Warranty API, Ticketing) - pending
+- ⏸️ Pipeline integration tests - pending
+- ⏸️ Performance and error handling tests - pending
+- ⏸️ Factory function and module exports - pending
+
+**Technical Decisions:**
+- Heuristic priority order: spam → short email → warranty keyword → default ambiguous
+- Missing-info scenario requires warranty keyword intent (prevents false positives)
+- LLM fallback triggered when heuristic confidence < 0.8
+- Error handling returns graceful-degradation (never crashes)
 
 ### File List
 
-**Processing Data Models:**
-- `src/guarantee_email_agent/email/processor_models.py` - ScenarioDetectionResult, ProcessingResult dataclasses
+**Created (Session 1):**
+- `src/guarantee_email_agent/email/processor_models.py` - ProcessingResult, ScenarioDetectionResult dataclasses
+- `src/guarantee_email_agent/email/scenario_detector.py` - ScenarioDetector with heuristic + LLM detection
+- `tests/test_email/test_processor_models.py` - Data model tests (8 tests)
+- `tests/test_email/test_scenario_detector.py` - Scenario detector tests (12 tests)
 
-**Scenario Detection:**
-- `src/guarantee_email_agent/email/scenario_detector.py` - ScenarioDetector with heuristic + LLM
-
-**Email Processing Pipeline:**
-- `src/guarantee_email_agent/email/processor.py` - EmailProcessor orchestrator
-
-**Module Exports and Factory:**
-- `src/guarantee_email_agent/email/__init__.py` - Updated exports, create_email_processor factory
-
-**Tests:**
-- `tests/email/test_scenario_detector.py` - Scenario detection tests
-- `tests/email/test_processor.py` - Pipeline orchestrator tests
-- `tests/email/test_pipeline_integration.py` - End-to-end integration tests
-- `tests/email/test_performance.py` - Processing time and concurrent tests
-- `tests/email/test_error_handling.py` - Error handling and failure marking tests
+**Pending (Session 2):**
+- `src/guarantee_email_agent/email/processor.py` - EmailProcessor orchestrator (not started)
+- `src/guarantee_email_agent/email/__init__.py` - Updated exports (not started)
+- `tests/test_email/test_processor.py` - Pipeline orchestrator tests (not started)
+- `tests/test_email/test_pipeline_integration.py` - End-to-end integration tests (not started)

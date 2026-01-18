@@ -31,7 +31,7 @@ development_status:
   3-1-instruction-parser-and-main-orchestration-logic: done
   3-2-scenario-routing-and-llm-response-generation: done
   3-3-email-parser-and-serial-number-extraction: review
-  3-4-end-to-end-email-processing-pipeline: ready-for-dev
+  3-4-end-to-end-email-processing-pipeline: in-progress
   3-5-cli-agent-run-command-and-graceful-shutdown: ready-for-dev
   3-6-structured-logging-and-graceful-degradation: ready-for-dev
   epic-3-retrospective: backlog
