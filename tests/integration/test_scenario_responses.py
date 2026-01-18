@@ -15,6 +15,7 @@ from guarantee_email_agent.config.schema import (
     MCPConnectionConfig,
     EvalConfig,
     LoggingConfig,
+    LLMConfig,
 )
 
 
@@ -145,7 +146,7 @@ Process warranty inquiry emails by analyzing content and generating appropriate 
 
 @pytest.fixture
 def integration_config(integration_main_instruction: str, integration_scenarios_dir: str):
-    """Create configuration for integration testing."""
+    """Create configuration for integration testing with Gemini provider."""
     return AgentConfig(
         mcp=MCPConfig(
             gmail=MCPConnectionConfig(connection_string="test://gmail"),
@@ -159,8 +160,16 @@ def integration_config(integration_main_instruction: str, integration_scenarios_
         ),
         eval=EvalConfig(test_suite_path="./evals"),
         logging=LoggingConfig(level="INFO"),
+        llm=LLMConfig(
+            provider="gemini",
+            model="gemini-2.0-flash-exp",
+            temperature=0.7,
+            max_tokens=8192,
+            timeout_seconds=15
+        ),
         secrets=SecretsConfig(
-            anthropic_api_key="test-api-key",
+            anthropic_api_key=None,
+            gemini_api_key="test-gemini-api-key",
             gmail_api_key="test-gmail-key",
             warranty_api_key="test-warranty-key",
             ticketing_api_key="test-ticketing-key",

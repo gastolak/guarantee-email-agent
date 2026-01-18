@@ -11,10 +11,24 @@ from guarantee_email_agent.config.schema import AgentConfig
 # Mock config fixture
 @pytest.fixture
 def mock_config():
-    """Create mock configuration."""
+    """Create mock configuration with Gemini provider."""
+    from guarantee_email_agent.config.schema import LLMConfig, SecretsConfig
+
     config = Mock(spec=AgentConfig)
-    config.secrets = Mock()
-    config.secrets.anthropic_api_key = "test_api_key"
+    config.llm = LLMConfig(
+        provider="gemini",
+        model="gemini-2.0-flash-exp",
+        temperature=0.7,
+        max_tokens=8192,
+        timeout_seconds=15
+    )
+    config.secrets = SecretsConfig(
+        anthropic_api_key=None,
+        gemini_api_key="test_gemini_key",
+        gmail_api_key="test_gmail_key",
+        warranty_api_key="test_warranty_key",
+        ticketing_api_key="test_ticketing_key"
+    )
     return config
 
 
@@ -114,12 +128,8 @@ async def test_llm_extraction_success(mock_config):
     """Test LLM extraction successfully finds serial."""
     extractor = SerialNumberExtractor(mock_config, "test instruction")
 
-    # Mock Anthropic client response
-    mock_response = Mock()
-    mock_response.content = [Mock(text="SN12345")]
-
-    # Patch the client.messages.create method directly
-    with patch.object(extractor.client.messages, 'create', return_value=mock_response) as mock_create:
+    # Mock LLM provider response
+    with patch.object(extractor.llm_provider, 'create_message', return_value="SN12345") as mock_create:
         result = await extractor.extract_with_llm("My serial is SN12345")
 
         assert result.is_successful()
@@ -135,11 +145,8 @@ async def test_llm_extraction_not_found(mock_config):
     """Test LLM extraction when serial not found."""
     extractor = SerialNumberExtractor(mock_config, "test instruction")
 
-    # Mock Anthropic client returning NONE
-    mock_response = Mock()
-    mock_response.content = [Mock(text="NONE")]
-
-    with patch.object(extractor.client.messages, 'create', return_value=mock_response):
+    # Mock LLM provider returning NONE
+    with patch.object(extractor.llm_provider, 'create_message', return_value="NONE"):
         result = await extractor.extract_with_llm("No serial here")
 
         assert not result.is_successful()
@@ -154,10 +161,7 @@ async def test_extract_serial_number_pattern_fast_path(mock_config, test_email_s
 
     # Pattern should find it immediately - no LLM needed
     # But mock anyway in case pattern fails
-    mock_response = Mock()
-    mock_response.content = [Mock(text="12345")]
-
-    with patch.object(extractor.client.messages, 'create', return_value=mock_response):
+    with patch.object(extractor.llm_provider, 'create_message', return_value="12345"):
         result = await extractor.extract_serial_number(test_email_simple_serial)
 
         # Should use pattern extraction (no LLM call)
@@ -180,10 +184,7 @@ async def test_extract_serial_number_llm_fallback(mock_config):
     )
 
     # Mock LLM to return the serial
-    mock_response = Mock()
-    mock_response.content = [Mock(text="ABC123XYZ")]
-
-    with patch.object(extractor.client.messages, 'create', return_value=mock_response):
+    with patch.object(extractor.llm_provider, 'create_message', return_value="ABC123XYZ"):
         result = await extractor.extract_serial_number(email)
 
         # Should fall back to LLM
@@ -197,10 +198,7 @@ async def test_extract_serial_number_both_methods_fail(mock_config, test_email_n
     extractor = SerialNumberExtractor(mock_config, "test instruction")
 
     # Mock LLM to return NONE
-    mock_response = Mock()
-    mock_response.content = [Mock(text="NONE")]
-
-    with patch.object(extractor.client.messages, 'create', return_value=mock_response):
+    with patch.object(extractor.llm_provider, 'create_message', return_value="NONE"):
         result = await extractor.extract_serial_number(test_email_no_serial)
 
         assert not result.is_successful()
@@ -221,7 +219,7 @@ async def test_extraction_error_handling_graceful(mock_config):
     )
 
     # Mock LLM to raise exception
-    with patch.object(extractor.client.messages, 'create', side_effect=Exception("API Error")):
+    with patch.object(extractor.llm_provider, 'create_message', side_effect=Exception("API Error")):
         # Should NOT crash - should return failed result
         result = await extractor.extract_serial_number(email)
 

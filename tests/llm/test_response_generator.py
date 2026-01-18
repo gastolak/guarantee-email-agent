@@ -18,6 +18,7 @@ from guarantee_email_agent.config.schema import (
     MCPConnectionConfig,
     EvalConfig,
     LoggingConfig,
+    LLMConfig,
 )
 from guarantee_email_agent.utils.errors import LLMTimeoutError, LLMError
 
@@ -73,7 +74,7 @@ version: 1.0.0
 
 @pytest.fixture
 def test_config(temp_main_instruction: str, temp_scenarios_dir: str):
-    """Create test agent configuration."""
+    """Create test agent configuration with Gemini provider."""
     return AgentConfig(
         mcp=MCPConfig(
             gmail=MCPConnectionConfig(connection_string="test://gmail"),
@@ -87,8 +88,16 @@ def test_config(temp_main_instruction: str, temp_scenarios_dir: str):
         ),
         eval=EvalConfig(test_suite_path="./evals"),
         logging=LoggingConfig(level="INFO"),
+        llm=LLMConfig(
+            provider="gemini",
+            model="gemini-2.0-flash-exp",
+            temperature=0.7,
+            max_tokens=8192,
+            timeout_seconds=15
+        ),
         secrets=SecretsConfig(
-            anthropic_api_key="test-api-key",
+            anthropic_api_key=None,
+            gemini_api_key="test-gemini-api-key",
             gmail_api_key="test-gmail-key",
             warranty_api_key="test-warranty-key",
             ticketing_api_key="test-ticketing-key",
