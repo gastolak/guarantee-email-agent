@@ -76,3 +76,8 @@ class LLMAuthenticationError(LLMError):
 class EmailParseError(AgentError):
     """Email parsing failures."""
     pass
+
+
+class EvalError(AgentError):
+    """Eval framework-related errors."""
+    pass

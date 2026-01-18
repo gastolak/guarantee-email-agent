@@ -177,11 +177,84 @@ def run(
     sys.exit(exit_code)
 
 
+async def run_eval(eval_dir: Path) -> int:
+    """
+    Run the evaluation suite.
+
+    Args:
+        eval_dir: Directory containing eval test cases
+
+    Returns:
+        Exit code (0 if ≥99%, 4 if <99%)
+    """
+    import time
+    from guarantee_email_agent.eval.loader import EvalLoader
+    from guarantee_email_agent.eval.runner import EvalRunner
+    from guarantee_email_agent.eval.reporter import EvalReporter
+
+    try:
+        # Initialize eval components
+        loader = EvalLoader()
+        runner = EvalRunner()
+        reporter = EvalReporter()
+
+        # Discover test cases
+        logger.info(f"Discovering eval test cases in {eval_dir}")
+        test_cases = loader.discover_test_cases(str(eval_dir))
+
+        if not test_cases:
+            logger.error(f"No eval test cases found in {eval_dir}")
+            typer.echo(f"❌ No eval test cases found in {eval_dir}")
+            typer.echo("\nCreate eval test cases in YAML format:")
+            typer.echo(f"  {eval_dir}/valid_warranty_001.yaml")
+            return 4
+
+        typer.echo(f"\n Running evaluation suite... ({len(test_cases)} scenarios)\n")
+
+        # Run eval suite
+        start_time = time.time()
+        results = await runner.run_suite(test_cases)
+        duration = time.time() - start_time
+
+        # Print results
+        reporter.print_scenario_results(results)
+        reporter.print_summary(results, duration)
+
+        # Determine exit code
+        pass_rate = reporter.calculate_pass_rate(results)
+        if pass_rate >= 99.0:
+            logger.info(f"Eval passed: {pass_rate:.1f}% pass rate")
+            return 0
+        else:
+            logger.warning(f"Eval failed: {pass_rate:.1f}% pass rate (<99%)")
+            return 4
+
+    except Exception as e:
+        logger.error(f"Eval execution error: {e}", exc_info=True)
+        typer.echo(f"❌ Eval execution error: {e}")
+        return 1
+
+
 @app.command()
-def eval():
-    """Execute the complete evaluation test suite."""
-    # Note: Full implementation in Epic 4 (Story 4.1, 4.2)
-    typer.echo("Agent eval command - to be implemented in Epic 4")
+def eval(
+    eval_dir: Path = typer.Option(
+        "evals/scenarios",
+        "--eval-dir",
+        help="Directory containing eval test case YAML files"
+    )
+):
+    """
+    Run evaluation suite to validate agent correctness.
+
+    Discovers and executes all YAML test cases in the eval directory.
+    Reports pass rate and exits with code 0 if ≥99%, code 4 if <99%.
+
+    Example:
+        uv run python -m guarantee_email_agent eval
+        uv run python -m guarantee_email_agent eval --eval-dir custom/evals
+    """
+    exit_code = asyncio.run(run_eval(eval_dir))
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

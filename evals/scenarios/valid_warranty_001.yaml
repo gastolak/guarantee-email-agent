@@ -1,0 +1,32 @@
+scenario_id: valid_warranty_001
+description: "Customer with valid warranty requests status check"
+category: valid-warranty
+created: "2026-01-18"
+
+input:
+  email:
+    subject: "Warranty status inquiry"
+    body: "Hi, I need to check my warranty status for serial number SN12345. Thanks!"
+    from: "customer@example.com"
+    received: "2026-01-18T10:00:00Z"
+
+  mock_responses:
+    warranty_api:
+      status: "valid"
+      expiration_date: "2025-12-31"
+      coverage: "full"
+
+expected_output:
+  email_sent: true
+  response_body_contains:
+    - "warranty is valid"
+    - "2025-12-31"
+  response_body_excludes:
+    - "expired"
+    - "invalid"
+  ticket_created: true
+  ticket_fields:
+    serial_number: "SN12345"
+    warranty_status: "valid"
+  scenario_instruction_used: "valid-warranty"
+  processing_time_ms: 60000
