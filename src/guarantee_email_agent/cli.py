@@ -82,12 +82,13 @@ Starting agent...
     print(banner)
 
 
-async def run_agent(config_path: Path) -> int:
+async def run_agent(config_path: Path, once: bool = False) -> int:
     """
     Run the agent with complete lifecycle management.
 
     Args:
         config_path: Path to configuration file
+        once: If True, process emails once and exit (for testing)
 
     Returns:
         Exit code (0=success, 2=config error, 3=MCP error, 1=other error)
@@ -120,12 +121,17 @@ async def run_agent(config_path: Path) -> int:
         logger.info("Initializing agent runner...")
         runner = AgentRunner(config, processor)
 
-        # Register signal handlers
-        runner.register_signal_handlers()
+        # Register signal handlers (unless in once mode)
+        if not once:
+            runner.register_signal_handlers()
 
         # Start monitoring loop
-        logger.info("Starting inbox monitoring loop...")
-        await runner.run()
+        if once:
+            logger.info("Running in --once mode (process emails once and exit)")
+            await runner.run_once()
+        else:
+            logger.info("Starting inbox monitoring loop...")
+            await runner.run()
 
         # Clean shutdown
         logger.info("Agent shutdown complete")
@@ -150,6 +156,11 @@ def run(
         file_okay=True,
         dir_okay=False,
         readable=True
+    ),
+    once: bool = typer.Option(
+        False,
+        "--once",
+        help="Process emails once and exit (for testing)"
     )
 ):
     """
@@ -162,7 +173,7 @@ def run(
     - Create tickets for valid warranties
     - Run until interrupted (Ctrl+C or SIGTERM)
     """
-    exit_code = asyncio.run(run_agent(config_path))
+    exit_code = asyncio.run(run_agent(config_path, once=once))
     sys.exit(exit_code)
 
 

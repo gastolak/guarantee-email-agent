@@ -169,6 +169,37 @@ class AgentRunner:
 
         return [r for r in results if isinstance(r, ProcessingResult)]
 
+    async def run_once(self) -> None:
+        """Run agent once: poll inbox, process emails, and exit.
+
+        Used for testing and one-time processing.
+        """
+        logger.info("Running in single-pass mode")
+
+        # Connect to Gmail MCP client
+        await self.gmail_client.connect()
+
+        try:
+            # Poll inbox
+            emails = await self.poll_inbox()
+
+            # Process emails if any found
+            if emails:
+                await self.process_inbox_emails(emails)
+            else:
+                logger.info("No emails to process")
+
+            # Log final status
+            uptime = int(time.time() - self._start_time)
+            logger.info(
+                f"Single-pass complete: {self._emails_processed} emails processed, "
+                f"{self._errors_count} errors, runtime: {uptime}s"
+            )
+
+        except Exception as e:
+            logger.error(f"Error in single-pass run: {e}", exc_info=True)
+            raise
+
     async def run(self) -> None:
         """Run main monitoring loop.
 

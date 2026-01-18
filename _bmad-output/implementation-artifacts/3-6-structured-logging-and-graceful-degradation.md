@@ -1199,6 +1199,38 @@ claude-sonnet-4-5-20250929
 - Testing strategy: logging, degradation, performance, integration
 - Verification commands for NFR14 compliance
 
+#### Commit af88551 (2026-01-18 16:04:31): Fix Gemini safety filters and add markdown response cleaning
+
+**Changes:**
+- Modified: `src/guarantee_email_agent/llm/provider.py` (+51 lines, -2 lines)
+
+**Details:**
+
+1. **Disabled overly aggressive Gemini safety filters:**
+   - Configured `BLOCK_NONE` for all safety categories (harassment, hate speech, sexually explicit, dangerous content)
+   - Fixed issue where warranty emails were incorrectly triggering SAFETY blocks (finish_reason=2)
+   - This was causing scenario detection failures
+
+2. **Added markdown response cleaning utility:**
+   - Created `clean_markdown_response()` function in provider.py:528
+   - Strips markdown code blocks (``` and backticks) from LLM responses
+   - Prevents Gemini from returning responses wrapped in markdown formatting
+   - Ensures cleaner serial number and scenario extraction
+
+**Impact:**
+- No more SAFETY-related failures in Gemini processing
+- More reliable Gemini integration
+- Better response quality from Gemini provider
+
+**Known Issue:**
+- Gemini still struggles with serial extraction from unstructured text compared to Anthropic
+- Response generator works well but earlier pipeline steps may need prompt improvements for Gemini-specific handling
+
+**Architecture Alignment:**
+- Supports multi-LLM provider strategy (Story 3.2 enhancement)
+- Maintains graceful degradation principles
+- Improves reliability of LLM integration layer
+
 ### File List
 
 **Logging Utilities:**

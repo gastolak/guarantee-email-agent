@@ -147,18 +147,18 @@ class GeminiProvider(LLMProvider):
 
         # Configure safety settings to be less restrictive
         # Warranty emails should not trigger safety filters
-        safety_settings = {
-            'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
-            'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
-            'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
-            'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+        # Must use proper HarmCategory and HarmBlockThreshold enums
+        from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+        self.safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
         }
 
-        self.model = genai.GenerativeModel(
-            config.model,
-            safety_settings=safety_settings
-        )
-        logger.info(f"Gemini provider initialized: model={config.model}")
+        self.model = genai.GenerativeModel(config.model)
+        logger.info(f"Gemini provider initialized: model={config.model} with BLOCK_NONE safety filters")
 
     def create_message(
         self,
@@ -193,8 +193,21 @@ class GeminiProvider(LLMProvider):
 
             response = self.model.generate_content(
                 combined_prompt,
-                generation_config=generation_config
+                generation_config=generation_config,
+                safety_settings=self.safety_settings
             )
+
+            # Log response details for debugging safety issues
+            logger.debug(f"Gemini response candidates: {len(response.candidates) if response.candidates else 0}")
+            if response.candidates:
+                candidate = response.candidates[0]
+                logger.debug(f"Finish reason: {candidate.finish_reason}")
+                if hasattr(candidate, 'safety_ratings'):
+                    logger.debug(f"Safety ratings: {candidate.safety_ratings}")
+
+            # Check if response was blocked by safety filters
+            if response.prompt_feedback:
+                logger.debug(f"Prompt feedback: {response.prompt_feedback}")
 
             # Clean markdown formatting from response (Gemini often adds ``` blocks)
             raw_text = response.text
@@ -205,6 +218,24 @@ class GeminiProvider(LLMProvider):
                 logger.debug(f"Cleaned Gemini response: '{raw_text}' -> '{cleaned_text}'")
 
             return cleaned_text
+        except ValueError as e:
+            # Handle finish_reason issues (safety blocks, max tokens, etc.)
+            error_msg = str(e)
+            if "finish_reason" in error_msg:
+                # Extract finish_reason value from error message
+                logger.error(
+                    f"Gemini response blocked: {error_msg}",
+                    extra={
+                        "error_type": "finish_reason_block",
+                        "prompt_length": len(combined_prompt),
+                        "max_tokens": max_tokens or self.config.max_tokens
+                    }
+                )
+            raise LLMError(
+                message=f"Gemini API error: {e}",
+                code="gemini_api_error",
+                details={"error": str(e)}
+            )
         except Exception as e:
             raise LLMError(
                 message=f"Gemini API error: {e}",
