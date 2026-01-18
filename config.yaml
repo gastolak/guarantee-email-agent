@@ -16,13 +16,15 @@ instructions:
     - "./instructions/scenarios/valid-warranty.md"
     - "./instructions/scenarios/invalid-warranty.md"
     - "./instructions/scenarios/missing-info.md"
+    - "./instructions/scenarios/graceful-degradation.md"
 
 # Logging Configuration
-# Log level, output destination, and file path
+# NFR14: Customer email body logged ONLY at DEBUG level
+# NFR16: Logs to stdout only (stateless, no file handlers)
 logging:
-  file: "./logs/agent.log"  # Log file path
-  level: "INFO"  # Options: DEBUG, INFO, WARN, ERROR, CRITICAL
-  output: "stdout"  # Output to standard output
+  level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
+  json_format: false  # true for production (machine-readable), false for development (human-readable)
+  log_to_stdout: true  # Always true per NFR16 (stateless)
 
 # MCP Connection Configuration
 # These connection strings will be used to connect to MCP servers
