@@ -26,3 +26,48 @@ class ConfigurationError(AgentError):
 class MCPConnectionError(AgentError):
     """MCP connection-related errors."""
     pass
+
+
+class InstructionError(AgentError):
+    """Base class for instruction-related errors."""
+    pass
+
+
+class InstructionParseError(InstructionError):
+    """Instruction file parsing failures."""
+    pass
+
+
+class InstructionValidationError(InstructionError):
+    """Instruction file validation failures."""
+    pass
+
+
+class TransientError(AgentError):
+    """Base class for transient errors that should be retried."""
+    pass
+
+
+class LLMError(AgentError):
+    """Base class for LLM-related errors."""
+    pass
+
+
+class LLMTimeoutError(TransientError):
+    """LLM timeout - transient, should retry."""
+    pass
+
+
+class LLMRateLimitError(TransientError):
+    """Rate limit - transient, should retry."""
+    pass
+
+
+class LLMConnectionError(TransientError):
+    """Connection error - transient, should retry."""
+    pass
+
+
+class LLMAuthenticationError(LLMError):
+    """Auth error - non-transient, do NOT retry."""
+    pass

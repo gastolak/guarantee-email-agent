@@ -68,10 +68,24 @@ def test_verify_file_exists_directory_not_file(tmp_path):
 def test_verify_instruction_paths_with_valid_files(tmp_path):
     """Test verifying instruction paths when all files exist"""
     main_file = tmp_path / "main.md"
-    main_file.write_text("# Main")
+    main_file.write_text("""---
+name: main
+description: Main instruction
+version: 1.0.0
+---
+
+<objective>Test</objective>
+""")
 
     scenario_file = tmp_path / "scenario.md"
-    scenario_file.write_text("# Scenario")
+    scenario_file.write_text("""---
+name: scenario
+description: Scenario instruction
+version: 1.0.0
+---
+
+<objective>Test scenario</objective>
+""")
 
     config = AgentConfig(
         mcp=MCPConfig(
@@ -133,7 +147,14 @@ def test_verify_instruction_paths_missing_main_file(tmp_path):
 def test_verify_instruction_paths_missing_scenario_file(tmp_path):
     """Test verifying instruction paths when scenario file is missing"""
     main_file = tmp_path / "main.md"
-    main_file.write_text("# Main")
+    main_file.write_text("""---
+name: main
+description: Main instruction
+version: 1.0.0
+---
+
+<objective>Test</objective>
+""")
     missing_scenario = tmp_path / "missing_scenario.md"
 
     config = AgentConfig(
