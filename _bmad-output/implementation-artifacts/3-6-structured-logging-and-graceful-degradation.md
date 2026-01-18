@@ -1350,6 +1350,72 @@ Processing time: 8.6 seconds ✅
 - Better alignment with graceful degradation principles
 - Supports Story 3.2 scenario routing enhancements
 
+#### Commit bb80903 (2026-01-18 16:53): Fix MCP client connections - connect warranty and ticketing clients
+
+**Changes:**
+- Modified: `src/guarantee_email_agent/agent/runner.py` (+6 lines, -2 lines)
+
+**Bug Fix:**
+
+Warranty and ticketing MCP clients were initialized but **never connected**, causing `ConnectionError: Warranty MCP client not connected` during warranty validation step.
+
+**Root Cause:**
+- AgentRunner connected to Gmail MCP client in run() and run_once()
+- But warranty_client and ticketing_client were never connected
+- warranty_client.check_warranty() requires self.connected = True
+- Resulted in graceful degradation fallback instead of actual warranty validation
+
+**Solution:**
+Added connection calls for warranty and ticketing clients:
+```python
+# Connect to all MCP clients
+await self.gmail_client.connect()
+await self.processor.warranty_client.connect()  # Added
+await self.processor.ticketing_client.connect()  # Added
+```
+
+Applied to both:
+- `run_once()` method (runner.py:180-182) - single-pass testing mode
+- `run()` method (runner.py:225-227) - continuous monitoring mode
+
+**Before Fix:**
+```
+Step 4/7: Validating warranty
+ERROR: ConnectionError: Warranty MCP client not connected
+Falls back to graceful-degradation scenario
+No ticket created
+```
+
+**After Fix:**
+```
+Step 4/7: Validating warranty
+Warranty validated: status=valid ✅
+Step 7/7: Creating ticket
+Ticket created: 40233 ✅
+```
+
+**Impact:**
+- ✅ Warranty validation now works
+- ✅ Returns warranty status: valid, expires 2027-01-18
+- ✅ Uses valid-warranty scenario (not graceful-degradation)
+- ✅ Ticket created successfully: 40233
+- ✅ Complete end-to-end RMA workflow functional
+- ✅ Processing time: 6 seconds (within 60s target)
+
+**Response Quality Improvement:**
+The agent now generates proper warranty confirmation responses:
+- "I'm pleased to confirm that the warranty for this device is valid..."
+- "...active until January 18, 2027"
+- "Your warranty covers manufacturing defects..."
+- Includes RMA process steps
+- Creates support ticket automatically
+
+**Architecture Impact:**
+- Completes full email processing pipeline (Stories 3.1-3.6)
+- All MCP integrations now functional (Story 2.1)
+- Graceful degradation only used for actual failures (not connection bugs)
+- Ready for production deployment
+
 ### File List
 
 **Logging Utilities:**
