@@ -85,14 +85,14 @@ class GmailMCPClient:
         if self._poll_count == 1:
             # Real email from ACNET about RMA warranty claim
             mock_email = {
-                "message_id": "CAAP6shROU4VqBy5v+=TqAR7_Qp7eAfvYZtqBoPVWG8_v5hhg4g@mail.gmail.com",
-                "subject": "Re: [Ticket#72277145] [EXT] Mediant Teletaxi v2",
+                "message_id": "CAAP6shSLNa0_NPqKPxueDps8=xRpNfG50Wg0cFxKKOMBgUpkmA@mail.gmail.com",
+                "subject": "Re: [Ticket#72277145] [EXT] Mediant Teletaxi v1",
                 "from": "Adam Przetak <adam.przetak@acnet.com.pl>",
                 "to": "wirtualny.serwis-test@acnet.com.pl",
-                "date": "2025-10-27T15:38:31+01:00",
+                "date": "2025-10-27T15:38:29+01:00",
                 "body": """Dzień dobry,
 
-Zgłaszamy na RMA jako uszkodzoną kolejną (drugą) bramę C074AD3D3101 Mediant pod tego klienta. Brama nie działa prawidłowo, jest obecnie w jakimś trybie 'awaryjnym' i nie udało nam się uzyskać poprzez serwis odpowiedzi na ten problem od inżyniera Audiocodes. Czy możemy zmienić bramę w tym projekcie na normalnego Medianta M500 lub M500L (z serii SBC) zamianst M500Li (seria MSBR)? Uruchomiliśmy dziesiątki M500/M500L i nigdby nie było problemów, a tu druga pod rząd M500Li, która nie działa poprawnie.
+Zgłaszamy na RMA jako uszkodzoną kolejną (drugą) bramę Mediant pod tego klienta. Brama nie działa prawidłowo, jest obecnie w jakimś trybie 'awaryjnym' i nie udało nam się uzyskać poprzez serwis odpowiedzi na ten problem od inżyniera Audiocodes. Czy możemy zmienić bramę w tym projekcie na normalnego Medianta M500 lub M500L (z serii SBC) zamianst M500Li (seria MSBR)? Uruchomiliśmy dziesiątki M500/M500L i nigdby nie było problemów, a tu druga pod rząd M500Li, która nie działa poprawnie.
 
 pozdrawiam,
 
