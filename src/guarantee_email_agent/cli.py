@@ -177,12 +177,20 @@ def run(
     sys.exit(exit_code)
 
 
-async def run_eval(eval_dir: Path) -> int:
+async def run_eval(
+    eval_dir: Path,
+    verbose: bool = False,
+    failures_only: bool = False,
+    detailed: bool = False
+) -> int:
     """
     Run the evaluation suite.
 
     Args:
         eval_dir: Directory containing eval test cases
+        verbose: Show detailed output including full response bodies
+        failures_only: Only show failed scenarios
+        detailed: Show detailed failure report with suggestions
 
     Returns:
         Exit code (0 if ≥99%, 4 if <99%)
@@ -207,17 +215,34 @@ async def run_eval(eval_dir: Path) -> int:
             typer.echo(f"❌ No eval test cases found in {eval_dir}")
             typer.echo("\nCreate eval test cases in YAML format:")
             typer.echo(f"  {eval_dir}/valid_warranty_001.yaml")
+            typer.echo("\nSee evals/scenarios/README.md for template and examples")
             return 4
 
-        typer.echo(f"\n Running evaluation suite... ({len(test_cases)} scenarios)\n")
+        typer.echo(f"\n🔍 Running evaluation suite... ({len(test_cases)} scenarios)\n")
 
         # Run eval suite
         start_time = time.time()
         results = await runner.run_suite(test_cases)
         duration = time.time() - start_time
 
-        # Print results
-        reporter.print_scenario_results(results)
+        # Print results based on flags
+        if failures_only:
+            # Only show failed scenarios
+            failed_results = [r for r in results if not r.passed]
+            for result in failed_results:
+                print(result.format_for_display())
+                if result.failures:
+                    for failure in result.failures:
+                        print(f"  - {failure}")
+        else:
+            # Show all scenarios
+            reporter.print_scenario_results(results)
+
+        # Print detailed failures if requested
+        if detailed:
+            reporter.print_detailed_failures(results, verbose=verbose)
+
+        # Print summary
         reporter.print_summary(results, duration)
 
         # Determine exit code
@@ -241,6 +266,24 @@ def eval(
         "evals/scenarios",
         "--eval-dir",
         help="Directory containing eval test case YAML files"
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed output including full response bodies"
+    ),
+    failures_only: bool = typer.Option(
+        False,
+        "--failures-only",
+        "-f",
+        help="Only show failed scenarios (useful when many tests pass)"
+    ),
+    detailed: bool = typer.Option(
+        False,
+        "--detailed",
+        "-d",
+        help="Show detailed failure analysis with categorization and fix suggestions"
     )
 ):
     """
@@ -249,11 +292,23 @@ def eval(
     Discovers and executes all YAML test cases in the eval directory.
     Reports pass rate and exits with code 0 if ≥99%, code 4 if <99%.
 
-    Example:
+    Examples:
+        # Basic run
         uv run python -m guarantee_email_agent eval
+
+        # Show only failures (when many tests pass)
+        uv run python -m guarantee_email_agent eval --failures-only
+
+        # Show detailed failure analysis with suggestions
+        uv run python -m guarantee_email_agent eval --detailed
+
+        # Verbose mode with full response bodies
+        uv run python -m guarantee_email_agent eval --detailed --verbose
+
+        # Custom eval directory
         uv run python -m guarantee_email_agent eval --eval-dir custom/evals
     """
-    exit_code = asyncio.run(run_eval(eval_dir))
+    exit_code = asyncio.run(run_eval(eval_dir, verbose, failures_only, detailed))
     sys.exit(exit_code)
 
 

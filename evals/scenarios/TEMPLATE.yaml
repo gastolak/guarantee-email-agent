@@ -1,0 +1,131 @@
+# EVAL TEST CASE TEMPLATE
+# Copy this file and fill in with actual test data
+# File naming: {category}_{number}.yaml (e.g., valid_warranty_001.yaml)
+
+# Unique identifier for this test case
+scenario_id: example_001
+
+# Human-readable description of what this scenario tests
+description: "Brief description of the scenario being tested"
+
+# Category for grouping related scenarios
+# Examples: valid-warranty, invalid-warranty, missing-info, out-of-scope
+category: example-category
+
+# Date this test case was created (format: "YYYY-MM-DD")
+created: "2026-01-18"
+
+# INPUT SECTION
+# Defines the email input and mock API responses
+input:
+  # Email content to process
+  email:
+    subject: "Email subject line"
+    body: "Email body text with relevant details like serial number SN12345"
+    from: "customer@example.com"
+    received: "2026-01-18T10:00:00Z"  # ISO 8601 format
+
+  # Mock responses from external APIs (optional)
+  # Only include APIs that will be called for this scenario
+  mock_responses:
+    warranty_api:
+      status: "valid"  # or "expired", "invalid", "not_found"
+      expiration_date: "2025-12-31"
+      coverage: "full"  # optional additional fields
+
+# EXPECTED OUTPUT SECTION
+# Defines what the agent should do for this email
+expected_output:
+  # Was an email response sent? (required)
+  email_sent: true
+
+  # Phrases that MUST appear in the response (optional list)
+  # Case-insensitive matching
+  response_body_contains:
+    - "warranty is valid"
+    - "expiration date"
+
+  # Phrases that MUST NOT appear in the response (optional list)
+  # Case-insensitive matching
+  response_body_excludes:
+    - "expired"
+    - "invalid"
+
+  # Was a support ticket created? (required)
+  ticket_created: true
+
+  # Expected ticket field values (optional dict)
+  # Only include if ticket_created: true
+  ticket_fields:
+    serial_number: "SN12345"
+    warranty_status: "valid"
+    priority: "normal"
+
+  # Which scenario instruction file was used (required)
+  # Should match a file in instructions/scenarios/
+  scenario_instruction_used: "valid-warranty"
+
+  # Maximum processing time in milliseconds (optional, default: 60000)
+  # Use lower value if scenario should be faster
+  processing_time_ms: 60000
+
+
+# INSTRUCTIONS FOR USE
+# 1. Copy this template to a new file: {category}_{number}.yaml
+# 2. Fill in all required fields (marked as "required" above)
+# 3. Add optional fields as needed for your scenario
+# 4. Place file in evals/scenarios/ directory
+# 5. Run eval to verify: uv run python -m guarantee_email_agent eval
+# 6. Iterate on instructions until test passes
+
+
+# COMMON SCENARIOS TO TEST
+
+# Valid Warranty:
+# - Customer has active warranty, requests status check
+# - Agent confirms validity, provides expiration date
+# - Ticket created for record keeping
+
+# Expired Warranty:
+# - Customer has expired warranty, requests status
+# - Agent informs warranty expired, offers renewal options
+# - Ticket created with expired status
+
+# Missing Information:
+# - Email lacks serial number or required details
+# - Agent requests missing information politely
+# - No ticket created (incomplete inquiry)
+
+# Out of Scope:
+# - Email is spam, unrelated, or non-warranty topic
+# - Agent declines politely or ignores
+# - No ticket created
+
+# Invalid Serial Number:
+# - Serial number format invalid or not found
+# - Agent informs customer and requests verification
+# - Ticket created for investigation
+
+
+# TIPS FOR CREATING GOOD TEST CASES
+
+# 1. Test One Thing
+#    - Each test case should focus on one specific scenario
+#    - Don't combine multiple edge cases in one test
+
+# 2. Use Real-World Examples
+#    - Base tests on actual customer emails when possible
+#    - Capture variations in language, tone, formatting
+
+# 3. Be Specific in Assertions
+#    - Use response_body_contains for key phrases
+#    - Use response_body_excludes to prevent unwanted content
+
+# 4. Document Edge Cases
+#    - Include description explaining why this case is important
+#    - Reference the real-world failure that prompted this test
+
+# 5. Maintain Regression Suite
+#    - Never delete passing test cases
+#    - Keep all scenarios even if they seem redundant
+#    - Suite acts as living documentation of agent behavior
