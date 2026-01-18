@@ -41,8 +41,8 @@ development_status:
   epic-4: in-progress
   4-1-eval-framework-core-format-execution-pass-rate: ready-for-dev
   4-2-eval-reporting-and-continuous-improvement-loop: ready-for-dev
-  4-3-error-handling-exit-codes-and-comprehensive-logging: backlog
-  4-4-signal-handling-idempotent-startup-and-daemon-mode: backlog
+  4-3-error-handling-exit-codes-and-comprehensive-logging: ready-for-dev
+  4-4-signal-handling-idempotent-startup-and-daemon-mode: ready-for-dev
   epic-4-retrospective: backlog
 
 # Project Summary
@@ -55,11 +55,11 @@ project_info:
 
 # Sprint Metrics (auto-calculated)
 sprint_metrics:
-  stories_ready: 10  # 1.4, 2.1, 3.2-3.6, 4.1-4.2
+  stories_ready: 12  # 1.4, 2.1, 3.3-3.6, 4.1-4.4
   stories_in_review: 2  # 1.2, 1.3
   stories_done: 2  # 1.1, 3.1
   current_epic: epic-4
-  completion_percentage: 67  # 10 of 15 stories ready or complete, 2 done!
+  completion_percentage: 80  # 12 of 15 stories ready or complete, 2 done!
 
 # Optimization Mapping (for reference)
 # Shows how old stories map to new optimized stories

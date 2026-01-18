@@ -21,11 +21,11 @@ This document provides an **optimized** epic and story breakdown for guarantee-e
 
 **Optimization Strategy:**
 - **Epic 1**: Kept as-is (4 stories) - already implemented and working
-- **Epic 2**: Merged 4 stories → 2 stories (MCP integrations consolidated)
+- **Epic 2**: Merged 4 stories → 1 story (all MCP integrations consolidated into single comprehensive story)
 - **Epic 3**: Merged Epic 3 + Epic 4 → 6 stories (instruction engine + email processing tightly coupled)
 - **Epic 4**: Merged Epic 5 + Epic 6 → 4 stories (eval + production concerns)
 
-**Result:** 48% story reduction, same scope, faster delivery.
+**Result:** 52% story reduction, same scope, faster delivery.
 
 ## Requirements Inventory
 
@@ -55,7 +55,7 @@ CTO can initialize the guarantee-email-agent project with proper structure, depe
 **FRs covered:** FR34, FR35, FR36, FR37, FR38, FR39, FR40, FR41
 **Status:** ✅ 3 stories DONE, 1 story READY-FOR-DEV
 
-### Epic 2: MCP Integration Layer (CONSOLIDATED - 2 stories)
+### Epic 2: MCP Integration Layer (CONSOLIDATED - 1 story)
 The agent can connect to all external systems (Gmail, Warranty API, Ticketing) via MCP with reliable error handling, retry logic, and circuit breaker patterns. All three MCP integrations are built together since they follow the same architectural pattern.
 
 **FRs covered:** FR1, FR6, FR19, FR42, FR43
@@ -686,14 +686,14 @@ So that it integrates with process supervisors and can be deployed reliably.
 
 **Optimization Results:**
 - **Original:** 6 epics, 31 stories
-- **Optimized:** 4 epics, 16 stories
-- **Reduction:** 48% fewer stories
+- **Optimized:** 4 epics, 15 stories
+- **Reduction:** 52% fewer stories
 - **Coverage:** 100% of FRs and NFRs maintained
 - **Benefits:** Faster velocity, less context switching, clearer dependencies
 
 **Epic Breakdown:**
 - Epic 1: 4 stories (UNCHANGED - already done)
-- Epic 2: 2 stories (down from 4)
+- Epic 2: 1 story (down from 4 - fully consolidated)
 - Epic 3: 6 stories (down from 12)
 - Epic 4: 4 stories (down from 13)
 
