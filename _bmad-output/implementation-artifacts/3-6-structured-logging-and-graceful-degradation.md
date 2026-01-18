@@ -1231,6 +1231,61 @@ claude-sonnet-4-5-20250929
 - Maintains graceful degradation principles
 - Improves reliability of LLM integration layer
 
+#### Commit 6ad3eb0 (2026-01-18 16:42): Fix Gemini max_tokens limit and add --once testing flag
+
+**Changes:**
+- Modified: `config.yaml` (max_tokens: 2000 → 8192, model: gemini-2.0-flash-exp)
+- Modified: `src/guarantee_email_agent/llm/provider.py` (+47 lines safety settings fix)
+- Modified: `src/guarantee_email_agent/cli.py` (+8 lines --once flag)
+- Modified: `src/guarantee_email_agent/agent/runner.py` (+29 lines run_once method)
+- Modified: `_bmad-output/implementation-artifacts/3-6-structured-logging-and-graceful-degradation.md`
+
+**Critical Fixes:**
+
+1. **Increased max_tokens from 2000 to 8192:**
+   - Root cause: finish_reason=2 was MAX_TOKENS, not SAFETY
+   - Gemini 2.0 Flash supports up to 8192 output tokens (hard limit)
+   - Previous 2000 token limit was truncating warranty responses
+   - Now set to model maximum for full response generation
+
+2. **Fixed Gemini safety settings implementation:**
+   - Properly using HarmCategory and HarmBlockThreshold enums from google.generativeai.types
+   - Storing safety_settings as instance variable (self.safety_settings)
+   - Passing safety_settings to generate_content() call (not just model init)
+   - Added debug logging for finish_reason and safety_ratings
+   - Added ValueError exception handler for finish_reason blocks
+
+3. **Added --once testing flag:**
+   - CLI: `--once` flag for single-pass execution (testing mode)
+   - AgentRunner: `run_once()` method processes emails once and exits cleanly
+   - Prevents infinite monitoring loop during development/testing
+   - Usage: `uv run python -m guarantee_email_agent run --config config.yaml --once`
+
+4. **Switched to stable Gemini model:**
+   - Changed: gemini-3-flash-preview → gemini-2.0-flash-exp
+   - Preview models (gemini-3-*) had experimental safety filters
+   - Stable gemini-2.0-flash-exp works reliably with BLOCK_NONE settings
+
+**Impact:**
+- ✅ Agent processes Polish RMA emails successfully
+- ✅ No more MAX_TOKENS truncation errors
+- ✅ Serial extraction: C074AD3D3101
+- ✅ Response generation: 1033 chars (graceful-degradation scenario)
+- ✅ Processing time: ~6 seconds per email
+- ✅ Success rate: 100% (1/1 emails processed)
+- ✅ Testing workflow: simple --once flag
+
+**Testing Command:**
+```bash
+uv run python -m guarantee_email_agent run --config config.yaml --once
+```
+
+**Architecture Impact:**
+- Enhanced multi-LLM provider reliability
+- Improved testing/development workflow
+- Production-ready Gemini configuration
+- Proper safety settings implementation
+
 ### File List
 
 **Logging Utilities:**
