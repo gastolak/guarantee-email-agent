@@ -55,6 +55,14 @@ class SecretsConfig:
 
 
 @dataclass(frozen=True)
+class AgentRuntimeConfig:
+    """Agent runtime configuration for polling and lifecycle management."""
+    polling_interval_seconds: int = 60
+    shutdown_timeout_seconds: int = 30
+    max_consecutive_errors: int = 10
+
+
+@dataclass(frozen=True)
 class AgentConfig:
     """Top-level agent configuration."""
     mcp: MCPConfig
@@ -62,3 +70,9 @@ class AgentConfig:
     eval: EvalConfig
     logging: LoggingConfig
     secrets: SecretsConfig
+    agent: AgentRuntimeConfig = None  # Optional, defaults will be used
+
+    def __post_init__(self):
+        """Ensure agent config exists with defaults."""
+        if self.agent is None:
+            object.__setattr__(self, 'agent', AgentRuntimeConfig())

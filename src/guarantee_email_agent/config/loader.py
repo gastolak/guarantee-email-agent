@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from guarantee_email_agent.config.schema import (
     AgentConfig,
+    AgentRuntimeConfig,
     MCPConfig,
     MCPConnectionConfig,
     InstructionsConfig,
@@ -165,12 +166,25 @@ def load_config(config_path: str = None) -> AgentConfig:
                 details={"field": f"logging.{e.args[0] if e.args else 'logging'}"}
             )
 
+        # Parse agent runtime config (optional, uses defaults if not present)
+        agent_config = None
+        if 'agent' in raw_config:
+            try:
+                agent_config = AgentRuntimeConfig(**raw_config['agent'])
+            except TypeError as e:
+                raise ConfigurationError(
+                    message=f"Invalid agent config: {e}",
+                    code="config_invalid_type",
+                    details={"field": "agent", "error": str(e)}
+                )
+
         return AgentConfig(
             mcp=mcp_config,
             instructions=instructions_config,
             eval=eval_config,
             logging=logging_config,
-            secrets=secrets
+            secrets=secrets,
+            agent=agent_config
         )
     except TypeError as e:
         raise ConfigurationError(

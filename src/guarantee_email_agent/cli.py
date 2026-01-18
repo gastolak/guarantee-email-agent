@@ -1,11 +1,16 @@
 """CLI interface for the guarantee email agent."""
 
+import asyncio
 import sys
 import logging
+from pathlib import Path
 import typer
 
+from guarantee_email_agent import __version__
 from guarantee_email_agent.config import load_config, validate_config
-from guarantee_email_agent.config.startup_validator import validate_startup
+from guarantee_email_agent.agent.startup import validate_startup
+from guarantee_email_agent.agent.runner import AgentRunner
+from guarantee_email_agent.email import create_email_processor
 from guarantee_email_agent.utils.errors import ConfigurationError, MCPConnectionError
 
 # Configure logging
@@ -17,86 +22,155 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
-    name="agent",
-    help="Instruction-driven AI agent for warranty email automation"
+    name="guarantee-email-agent",
+    help="Automated warranty email response agent",
+    add_completion=False
 )
 
 
-def load_and_validate_config(config_path: str = None):
-    """Load and validate configuration, file paths, and MCP connections.
+def version_callback(value: bool):
+    """Display version information"""
+    if value:
+        typer.echo(f"guarantee-email-agent version {__version__}")
+        raise typer.Exit()
 
-    Complete startup sequence with proper exit codes:
-    - Exit code 2: Configuration errors (schema, missing secrets, file paths)
-    - Exit code 3: MCP connection errors
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        "-v",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit"
+    )
+):
+    """guarantee-email-agent: Automated warranty email response system"""
+    pass
+
+
+async def load_and_validate_config_async(config_path: str = None):
+    """Load and validate configuration asynchronously (for old eval command).
+
+    Note: This is kept for compatibility with eval command. New code should
+    use the run_agent async function directly.
 
     Args:
-        config_path: Path to configuration file (default: from CONFIG_PATH env var or "config.yaml")
+        config_path: Path to configuration file
 
     Returns:
         AgentConfig: Fully validated configuration object
+    """
+    config = load_config(config_path)
+    await validate_startup(config)
+    return config
 
-    Exits:
-        Exit code 2 if configuration is invalid, secrets missing, or file paths invalid
-        Exit code 3 if MCP connection validation fails
+
+def print_startup_banner():
+    """Print startup banner with version and agent info."""
+    banner = f"""
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║         Guarantee Email Agent v{__version__}                     ║
+║         Automated Warranty Email Response System             ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+Starting agent...
+"""
+    print(banner)
+
+
+async def run_agent(config_path: Path) -> int:
+    """
+    Run the agent with complete lifecycle management.
+
+    Args:
+        config_path: Path to configuration file
+
+    Returns:
+        Exit code (0=success, 2=config error, 3=MCP error, 1=other error)
     """
     try:
-        # Load configuration and secrets
-        logger.info("Loading configuration...")
-        config = load_config(config_path)
-        logger.info("Configuration loaded")
+        # Display startup banner
+        print_startup_banner()
 
-        # Validate configuration schema and secrets
-        logger.info("Validating configuration schema...")
-        validate_config(config)
-        logger.info("Configuration valid")
+        # Load configuration
+        logger.info(f"Loading configuration from {config_path}")
+        config = load_config(str(config_path))
 
-        # Startup validation (file paths, MCP connections)
-        logger.info("Running startup validation...")
-        validate_startup(config)
-        logger.info("File paths verified")
-        logger.info("MCP connections tested")
+        # Run startup validations
+        logger.info("Running startup validations...")
+        try:
+            await validate_startup(config)
+            logger.info("✓ All startup validations passed")
+        except ConfigurationError as e:
+            logger.error(f"Configuration validation failed: {e}")
+            return 2  # Exit code 2: Configuration error
+        except MCPConnectionError as e:
+            logger.error(f"MCP connection failed: {e}")
+            return 3  # Exit code 3: MCP connection error
 
-        logger.info("Agent ready")
-        return config
+        # Initialize email processor
+        logger.info("Initializing email processor...")
+        processor = create_email_processor(config)
 
-    except ConfigurationError as e:
-        logger.error(f"Configuration Error: {e.message}")
-        logger.error(f"Error Code: {e.code}")
-        if e.details:
-            logger.error(f"Details: {e.details}")
+        # Initialize agent runner
+        logger.info("Initializing agent runner...")
+        runner = AgentRunner(config, processor)
 
-        # Provide helpful hints
-        if e.code == "config_missing_secret":
-            logger.info("Hint: Copy .env.example to .env and fill in your API keys")
-        elif e.code == "config_file_not_found":
-            logger.info("Hint: Check that the file path in config.yaml is correct")
+        # Register signal handlers
+        runner.register_signal_handlers()
 
-        sys.exit(2)  # Exit code 2 for configuration errors
+        # Start monitoring loop
+        logger.info("Starting inbox monitoring loop...")
+        await runner.run()
 
-    except MCPConnectionError as e:
-        logger.error(f"MCP Connection Error: {e.message}")
-        logger.error(f"Error Code: {e.code}")
-        if e.details:
-            logger.error(f"Details: {e.details}")
+        # Clean shutdown
+        logger.info("Agent shutdown complete")
+        return 0
 
-        logger.info("Hint: Check MCP connection strings in config.yaml")
-        logger.info("      In Epic 2, actual MCP servers will be tested")
-
-        sys.exit(3)  # Exit code 3 for MCP connection failures
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received")
+        return 0
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        return 1
 
 
 @app.command()
-def run():
-    """Start the warranty email agent for continuous processing."""
-    config = load_and_validate_config()
-    typer.echo("Agent run command - to be implemented in Epic 4")
+def run(
+    config_path: Path = typer.Option(
+        "config.yaml",
+        "--config",
+        "-c",
+        help="Path to configuration file",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True
+    )
+):
+    """
+    Start the warranty email agent.
+
+    The agent will:
+    - Validate configuration and connections
+    - Monitor Gmail inbox for warranty inquiries
+    - Process emails and send automated responses
+    - Create tickets for valid warranties
+    - Run until interrupted (Ctrl+C or SIGTERM)
+    """
+    exit_code = asyncio.run(run_agent(config_path))
+    sys.exit(exit_code)
 
 
 @app.command()
 def eval():
     """Execute the complete evaluation test suite."""
-    config = load_and_validate_config()
-    typer.echo("Agent eval command - to be implemented in Epic 5")
+    # Note: Full implementation in Epic 4 (Story 4.1, 4.2)
+    typer.echo("Agent eval command - to be implemented in Epic 4")
 
 
 if __name__ == "__main__":
