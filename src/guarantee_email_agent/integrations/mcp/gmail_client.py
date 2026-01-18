@@ -48,6 +48,7 @@ class GmailMCPClient:
         """
         self.connection_string = connection_string
         self.connected = False
+        self._poll_count = 0  # Track number of polls for mock data
         logger.info(f"Gmail MCP client initialized: {connection_string}")
 
     async def connect(self) -> None:
@@ -73,12 +74,42 @@ class GmailMCPClient:
             label: Gmail label to monitor (default: "INBOX")
 
         Returns:
-            List of EmailMessage objects (empty in mock)
+            List of EmailMessage objects (returns 1 real email on first poll, then empty)
         """
         if not self.connected:
             raise ConnectionError("Gmail MCP client not connected")
 
-        # Mock: return empty inbox
+        self._poll_count += 1
+
+        # Return a real email on first poll for testing
+        if self._poll_count == 1:
+            # Real email from ACNET about RMA warranty claim
+            mock_email = {
+                "message_id": "CAAP6shROU4VqBy5v+=TqAR7_Qp7eAfvYZtqBoPVWG8_v5hhg4g@mail.gmail.com",
+                "subject": "Re: [Ticket#72277145] [EXT] Mediant Teletaxi v2",
+                "from": "Adam Przetak <adam.przetak@acnet.com.pl>",
+                "to": "wirtualny.serwis-test@acnet.com.pl",
+                "date": "2025-10-27T15:38:31+01:00",
+                "body": """Dzień dobry,
+
+Zgłaszamy na RMA jako uszkodzoną kolejną (drugą) bramę C074AD3D3101 Mediant pod tego klienta. Brama nie działa prawidłowo, jest obecnie w jakimś trybie 'awaryjnym' i nie udało nam się uzyskać poprzez serwis odpowiedzi na ten problem od inżyniera Audiocodes. Czy możemy zmienić bramę w tym projekcie na normalnego Medianta M500 lub M500L (z serii SBC) zamianst M500Li (seria MSBR)? Uruchomiliśmy dziesiątki M500/M500L i nigdby nie było problemów, a tu druga pod rząd M500Li, która nie działa poprawnie.
+
+pozdrawiam,
+
+Pozdrawiam/Regards
+Adam Przetak
+CTO
++48 603 753 793
+adam.przetak@acnet.com.pl
+
+ul. Sokołowska 9 lok. U4 01-142 Warszawa
+NIP: 525 192 06 57"""
+            }
+
+            logger.info(f"Gmail inbox monitored: {label} - 1 email found (mock)")
+            return [mock_email]
+
+        # Subsequent polls return empty inbox
         logger.info(f"Gmail inbox monitored: {label} - 0 emails found (mock)")
         return []
 
