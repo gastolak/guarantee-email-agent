@@ -3,11 +3,17 @@
 import asyncio
 import logging
 import re
+import warnings
 from abc import ABC, abstractmethod
 from typing import Optional
 
 from anthropic import Anthropic
-import google.generativeai as genai
+
+# Suppress FutureWarnings from Google packages during import
+# These warnings don't affect functionality and clutter eval output
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore', FutureWarning)
+    import google.generativeai as genai
 
 from guarantee_email_agent.config.schema import AgentConfig, LLMConfig
 from guarantee_email_agent.utils.errors import LLMError
