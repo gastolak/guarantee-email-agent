@@ -2,9 +2,9 @@
 
 import logging
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import frontmatter
 
@@ -19,6 +19,82 @@ logger = logging.getLogger(__name__)
 _instruction_cache: Dict[str, "InstructionFile"] = {}
 
 
+def _validate_functions(
+    functions: List[Dict[str, Any]],
+    file_path: str
+) -> List[Dict[str, Any]]:
+    """Validate function definitions from YAML frontmatter.
+
+    Args:
+        functions: List of function definition dicts from YAML
+        file_path: Path to instruction file (for error messages)
+
+    Returns:
+        Validated list of function definitions
+
+    Raises:
+        InstructionValidationError: If function definition is invalid
+    """
+    if not isinstance(functions, list):
+        raise InstructionValidationError(
+            message=f"available_functions must be a list in {file_path}",
+            code="instruction_invalid_functions",
+            details={"file_path": file_path}
+        )
+
+    validated = []
+    for i, func in enumerate(functions):
+        if not isinstance(func, dict):
+            raise InstructionValidationError(
+                message=f"Function {i} must be a dict in {file_path}",
+                code="instruction_invalid_function",
+                details={"file_path": file_path, "index": i}
+            )
+
+        # Validate required fields
+        if "name" not in func:
+            raise InstructionValidationError(
+                message=f"Function {i} missing 'name' in {file_path}",
+                code="instruction_function_missing_name",
+                details={"file_path": file_path, "index": i}
+            )
+
+        if "description" not in func:
+            raise InstructionValidationError(
+                message=f"Function '{func.get('name', i)}' missing 'description' in {file_path}",
+                code="instruction_function_missing_description",
+                details={"file_path": file_path, "function": func.get("name", i)}
+            )
+
+        # Validate parameters if present
+        parameters = func.get("parameters", {"type": "object", "properties": {}})
+        if not isinstance(parameters, dict):
+            raise InstructionValidationError(
+                message=f"Function '{func['name']}' parameters must be a dict in {file_path}",
+                code="instruction_function_invalid_params",
+                details={"file_path": file_path, "function": func["name"]}
+            )
+
+        # Ensure parameters has required structure
+        if "type" not in parameters:
+            parameters["type"] = "object"
+        if "properties" not in parameters:
+            parameters["properties"] = {}
+
+        validated.append({
+            "name": func["name"],
+            "description": func["description"],
+            "parameters": parameters
+        })
+
+        logger.debug(
+            f"Validated function: {func['name']}",
+            extra={"function": func["name"], "file_path": file_path}
+        )
+
+    return validated
+
+
 @dataclass
 class InstructionFile:
     """Parsed instruction file with YAML frontmatter + XML body.
@@ -30,6 +106,7 @@ class InstructionFile:
         version: Instruction version for tracking
         body: XML content for LLM processing
         file_path: Absolute path to instruction file
+        available_functions: List of function definitions for LLM function calling
     """
     name: str
     description: str
@@ -37,6 +114,32 @@ class InstructionFile:
     version: str
     body: str
     file_path: str
+    available_functions: List[Dict[str, Any]] = field(default_factory=list)
+
+    def get_available_functions(self) -> List["FunctionDefinition"]:
+        """Get function definitions for LLM function calling.
+
+        Returns:
+            List of FunctionDefinition objects for use with LLM providers
+        """
+        from guarantee_email_agent.llm.function_calling import FunctionDefinition
+
+        functions = []
+        for func_data in self.available_functions:
+            functions.append(FunctionDefinition(
+                name=func_data["name"],
+                description=func_data["description"],
+                parameters=func_data.get("parameters", {"type": "object", "properties": {}})
+            ))
+        return functions
+
+    def has_functions(self) -> bool:
+        """Check if this instruction has function definitions.
+
+        Returns:
+            True if functions are defined, False otherwise
+        """
+        return len(self.available_functions) > 0
 
 
 def load_instruction(file_path: str) -> InstructionFile:
@@ -99,13 +202,19 @@ def load_instruction(file_path: str) -> InstructionFile:
                 details={"file_path": file_path}
             )
 
+        # Parse available_functions if present
+        available_functions = metadata.get('available_functions', [])
+        if available_functions:
+            available_functions = _validate_functions(available_functions, file_path)
+
         return InstructionFile(
             name=metadata['name'],
             description=metadata['description'],
             trigger=metadata.get('trigger'),
             version=metadata['version'],
             body=body,
-            file_path=str(Path(file_path).resolve())
+            file_path=str(Path(file_path).resolve()),
+            available_functions=available_functions
         )
 
     except FileNotFoundError:

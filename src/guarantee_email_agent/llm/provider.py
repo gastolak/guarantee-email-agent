@@ -3,11 +3,19 @@
 import asyncio
 import logging
 import re
+import time
 import warnings
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from anthropic import Anthropic
+
+if TYPE_CHECKING:
+    from guarantee_email_agent.llm.function_calling import (
+        FunctionDefinition,
+        FunctionCallingResult,
+    )
+    from guarantee_email_agent.llm.function_dispatcher import FunctionDispatcher
 
 # Suppress FutureWarnings from Google packages during import
 # These warnings don't affect functionality and clutter eval output
@@ -248,6 +256,246 @@ class GeminiProvider(LLMProvider):
                 code="gemini_api_error",
                 details={"error": str(e)}
             )
+
+    async def create_message_with_functions(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        available_functions: List["FunctionDefinition"],
+        function_dispatcher: "FunctionDispatcher",
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None
+    ) -> "FunctionCallingResult":
+        """Generate response with function calling support.
+
+        Implements multi-turn conversation where the LLM can call functions
+        and receive their results before generating the final response.
+
+        Args:
+            system_prompt: System instruction for the LLM
+            user_prompt: User message/query
+            available_functions: List of functions the LLM can call
+            function_dispatcher: Dispatcher to execute function calls
+            max_tokens: Maximum tokens in response
+            temperature: Sampling temperature (default 0 for determinism)
+
+        Returns:
+            FunctionCallingResult with response text, function calls, and metadata
+
+        Raises:
+            LLMError: If LLM request fails
+        """
+        # Import here to avoid circular imports
+        from guarantee_email_agent.llm.function_calling import (
+            FunctionCall,
+            FunctionCallingResult,
+        )
+
+        try:
+            # Convert functions to Gemini Tool format
+            function_declarations = []
+            for func in available_functions:
+                # Use genai.protos for proper function declaration
+                func_decl = genai.protos.FunctionDeclaration(
+                    name=func.name,
+                    description=func.description,
+                    parameters=genai.protos.Schema(
+                        type=genai.protos.Type.OBJECT,
+                        properties={
+                            prop_name: genai.protos.Schema(
+                                type=self._map_json_type_to_proto(prop_def.get("type", "string")),
+                                description=prop_def.get("description", ""),
+                                enum=prop_def.get("enum") if "enum" in prop_def else None
+                            )
+                            for prop_name, prop_def in func.parameters.get("properties", {}).items()
+                        },
+                        required=func.parameters.get("required", [])
+                    )
+                )
+                function_declarations.append(func_decl)
+
+            # Create tool with function declarations
+            tool = genai.protos.Tool(function_declarations=function_declarations)
+
+            # Create model with tools and system instruction
+            model_with_tools = genai.GenerativeModel(
+                self.config.model,
+                tools=[tool],
+                system_instruction=system_prompt
+            )
+
+            # Configure generation parameters - use temperature 0 for determinism
+            generation_config = genai.GenerationConfig(
+                temperature=temperature if temperature is not None else 0,
+                max_output_tokens=max_tokens or self.config.max_tokens,
+            )
+
+            # Start chat for multi-turn conversation
+            chat = model_with_tools.start_chat()
+            function_calls: List[FunctionCall] = []
+            total_turns = 0
+            max_iterations = 10
+
+            # Initial message
+            logger.debug(
+                "Sending initial message to Gemini",
+                extra={"prompt_length": len(user_prompt)}
+            )
+            response = chat.send_message(
+                user_prompt,
+                generation_config=generation_config,
+                safety_settings=self.safety_settings
+            )
+            total_turns += 1
+
+            # Function calling loop
+            while total_turns < max_iterations:
+                # Check if response has candidates and parts
+                if not response.candidates or not response.candidates[0].content.parts:
+                    logger.debug("No content parts in response, ending loop")
+                    break
+
+                part = response.candidates[0].content.parts[0]
+
+                # Check for function call
+                if hasattr(part, 'function_call') and part.function_call.name:
+                    fc = part.function_call
+                    function_name = fc.name
+                    # Convert MapComposite to dict
+                    arguments = dict(fc.args) if fc.args else {}
+
+                    logger.info(
+                        "LLM requested function call",
+                        extra={
+                            "function": function_name,
+                            "arguments": arguments,
+                            "turn": total_turns
+                        }
+                    )
+
+                    # Execute function via dispatcher
+                    function_result = await function_dispatcher.execute(
+                        function_name=function_name,
+                        arguments=arguments
+                    )
+                    function_calls.append(function_result)
+
+                    # Prepare response to send back to LLM
+                    if function_result.success:
+                        response_data = function_result.result
+                    else:
+                        response_data = {"error": function_result.error_message}
+
+                    # Send function result back to LLM
+                    function_response = genai.protos.Part(
+                        function_response=genai.protos.FunctionResponse(
+                            name=function_name,
+                            response={"result": response_data}
+                        )
+                    )
+
+                    try:
+                        response = chat.send_message(
+                            genai.protos.Content(parts=[function_response]),
+                            generation_config=generation_config,
+                            safety_settings=self.safety_settings
+                        )
+                    except IndexError:
+                        # Gemini sometimes returns empty response after function calls
+                        # Check if send_email was already called
+                        email_already_sent = any(
+                            fc.function_name == "send_email" and fc.success
+                            for fc in function_calls
+                        )
+                        if email_already_sent:
+                            logger.debug(
+                                "Empty response after send_email, task complete",
+                                extra={"function": function_name, "turn": total_turns}
+                            )
+                        else:
+                            logger.warning(
+                                "Empty response before send_email was called",
+                                extra={
+                                    "function": function_name,
+                                    "turn": total_turns,
+                                    "function_calls": [fc.function_name for fc in function_calls]
+                                }
+                            )
+                        break
+                    total_turns += 1
+
+                else:
+                    # No function call - LLM has finished
+                    logger.debug(
+                        "No function call in response, ending loop",
+                        extra={"turn": total_turns}
+                    )
+                    break
+
+            # Extract final text response
+            final_text = ""
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        text_value = part.text
+                        # Ensure we have a string (not a Mock or other object)
+                        if isinstance(text_value, str):
+                            final_text = clean_markdown_response(text_value)
+                            break
+
+            # Check if email was sent via send_email function
+            email_sent = any(
+                fc.function_name == "send_email" and fc.success
+                for fc in function_calls
+            )
+
+            logger.info(
+                "Function calling completed",
+                extra={
+                    "total_turns": total_turns,
+                    "function_calls_count": len(function_calls),
+                    "email_sent": email_sent,
+                    "response_length": len(final_text)
+                }
+            )
+
+            return FunctionCallingResult(
+                response_text=final_text,
+                function_calls=function_calls,
+                total_turns=total_turns,
+                email_sent=email_sent
+            )
+
+        except Exception as e:
+            logger.error(
+                "Function calling failed",
+                extra={"error": str(e)},
+                exc_info=True
+            )
+            raise LLMError(
+                message=f"Gemini function calling error: {e}",
+                code="gemini_function_calling_error",
+                details={"error": str(e)}
+            )
+
+    def _map_json_type_to_proto(self, json_type: str) -> "genai.protos.Type":
+        """Map JSON Schema type to Gemini Proto type.
+
+        Args:
+            json_type: JSON Schema type string
+
+        Returns:
+            Corresponding genai.protos.Type enum value
+        """
+        type_mapping = {
+            "string": genai.protos.Type.STRING,
+            "number": genai.protos.Type.NUMBER,
+            "integer": genai.protos.Type.INTEGER,
+            "boolean": genai.protos.Type.BOOLEAN,
+            "array": genai.protos.Type.ARRAY,
+            "object": genai.protos.Type.OBJECT,
+        }
+        return type_mapping.get(json_type, genai.protos.Type.STRING)
 
 
 def create_llm_provider(config: AgentConfig) -> LLMProvider:

@@ -28,18 +28,23 @@ class EvalReporter:
         passed = sum(1 for r in results if r.passed)
         return (passed / len(results)) * 100.0
 
-    def print_scenario_results(self, results: List[EvalResult]) -> None:
+    def print_scenario_results(
+        self, results: List[EvalResult], show_function_calls: bool = False
+    ) -> None:
         """
         Print per-scenario results.
 
         Args:
             results: List of eval results
+            show_function_calls: If True, show function call trace for each scenario
         """
         # Sort: passed first, then failed
         sorted_results = sorted(results, key=lambda r: (not r.passed, r.test_case.scenario_id))
 
         for result in sorted_results:
             print(result.format_for_display())
+            if show_function_calls and result.actual_function_calls:
+                print(result.format_function_calls())
             if not result.passed and result.failures:
                 for failure in result.failures:
                     print(f"  - {failure}")
@@ -146,6 +151,12 @@ class EvalReporter:
         print(f"  Category: {result.test_case.category}")
         print()
 
+        # Print function call trace if available
+        if result.actual_function_calls:
+            print(f"  FUNCTION CALLS:")
+            print(result.format_function_calls())
+            print()
+
         # Categorize and print failures
         categorized = self._categorize_failure_reasons(result.failures)
 
@@ -196,6 +207,12 @@ class EvalReporter:
                 categories["Email Sending"].append(failure)
             elif "processing_time_ms" in failure:
                 categories["Performance"].append(failure)
+            elif "Function" in failure and ("mismatch" in failure or "missing" in failure):
+                categories["Function Calls"].append(failure)
+            elif "function call" in failure.lower() or "unexpected" in failure.lower():
+                categories["Function Calls"].append(failure)
+            elif "does not contain" in failure.lower():
+                categories["Function Calls"].append(failure)
             else:
                 categories["Other"].append(failure)
 
@@ -215,6 +232,8 @@ class EvalReporter:
             return "Profile execution to identify slow steps (target: <60s per NFR7)"
         elif category == "Email Sending":
             return "Review email sending logic in src/guarantee_email_agent/email/processor.py"
+        elif category == "Function Calls":
+            return f"Review function definitions in: instructions/scenarios/{scenario}.md"
         else:
             return "Review test case expectations or implementation logic"
 

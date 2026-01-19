@@ -2,11 +2,30 @@
 name: graceful-degradation
 description: Fallback scenario for unclear, out-of-scope, or edge case inquiries
 trigger: null
-version: 1.1.0
+version: 2.0.0
+available_functions:
+  - name: send_email
+    description: Send email response to the customer requesting more information or providing general support contact. MUST be called to respond to the customer.
+    parameters:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Recipient email address
+        subject:
+          type: string
+          description: Email subject line
+        body:
+          type: string
+          description: Email body content in Polish
+      required: [to, subject, body]
 ---
 
 <objective>
-Handle unclear, out-of-scope, or unexpected warranty inquiries IN POLISH with a polite, helpful response that guides the customer toward the appropriate support channel.
+Handle unclear, out-of-scope, or unexpected warranty inquiries:
+1. Call send_email to send a polite response IN POLISH requesting more information or guiding customer to appropriate support channel
+
+IMPORTANT: You MUST call send_email to respond to the customer.
 </objective>
 
 <language>

@@ -8,12 +8,19 @@ Coordinates complete email processing workflow:
 5. Generate response → response_text
 6. Send email response → sent confirmation
 7. Create ticket (if valid warranty) → ticket_id
+
+Function-calling mode (Story 4.5):
+1. Parse email → EmailMessage
+2. Extract serial number → SerialExtractionResult
+3. Detect scenario → ScenarioDetectionResult
+4. LLM orchestrates functions (check_warranty, create_ticket, send_email)
+5. Validate email was sent
 """
 
 import asyncio
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from guarantee_email_agent.config.schema import AgentConfig
 from guarantee_email_agent.email.models import EmailMessage, SerialExtractionResult
@@ -28,7 +35,8 @@ from guarantee_email_agent.integrations.mcp.gmail_client import GmailMCPClient
 from guarantee_email_agent.integrations.mcp.ticketing_client import TicketingMCPClient
 from guarantee_email_agent.integrations.mcp.warranty_client import WarrantyMCPClient
 from guarantee_email_agent.llm.response_generator import ResponseGenerator
-from guarantee_email_agent.utils.errors import AgentError
+from guarantee_email_agent.llm.function_dispatcher import FunctionDispatcher
+from guarantee_email_agent.utils.errors import AgentError, ProcessingError
 
 logger = logging.getLogger(__name__)
 
@@ -472,3 +480,285 @@ class EmailProcessor:
                 error_message=str(e),
                 failed_step=failed_step or "unknown",
             )
+
+    async def process_email_with_functions(
+        self,
+        raw_email: Dict[str, Any],
+        use_function_calling: bool = True,
+        function_dispatcher: Optional["FunctionDispatcher"] = None
+    ) -> ProcessingResult:
+        """Process email using LLM function calling architecture.
+
+        Pipeline steps:
+        1. Parse email → EmailMessage
+        2. Extract serial number → SerialExtractionResult
+        3. Detect scenario → ScenarioDetectionResult
+        4. LLM orchestrates functions (check_warranty, create_ticket, send_email)
+        5. Validate send_email was called
+
+        Args:
+            raw_email: Raw email data from Gmail MCP
+            use_function_calling: If True, use function calling; else fall back to legacy
+            function_dispatcher: Optional pre-configured dispatcher (for testing/eval)
+
+        Returns:
+            ProcessingResult with processing outcome and details
+
+        Raises:
+            ProcessingError: If send_email was not called
+        """
+        # If function calling disabled, fall back to legacy processing
+        if not use_function_calling:
+            return await self.process_email(raw_email)
+
+        start_time = time.time()
+        email_id = raw_email.get("message_id", f"temp-{int(time.time())}")
+
+        logger.info(
+            f"Starting function-calling email processing: email_id={email_id}",
+            extra={"email_id": email_id, "status": "in_progress", "mode": "function_calling"},
+        )
+
+        # Initialize result tracking
+        serial_number = None
+        scenario_used = None
+        warranty_status = None
+        response_sent = False
+        ticket_created = False
+        ticket_id = None
+        failed_step = None
+        error_message = None
+        function_calls: List[Dict[str, Any]] = []
+
+        try:
+            # Step 1: Parse email
+            logger.info(f"Step 1/4: Parsing email: {email_id}")
+            try:
+                email = self.parser.parse_email(raw_email)
+                logger.info(
+                    f"Email parsed: subject='{email.subject}', from='{email.from_address}'",
+                    extra={"email_id": email_id, "step": "parse", "status": "success"},
+                )
+            except Exception as e:
+                failed_step = "parse"
+                error_message = f"Email parsing failed: {str(e)}"
+                logger.error(error_message, extra={"email_id": email_id}, exc_info=True)
+                raise
+
+            # Step 2: Extract serial number
+            logger.info(f"Step 2/4: Extracting serial number: {email_id}")
+            try:
+                serial_result = await self.extractor.extract_serial_number(email)
+                serial_number = serial_result.serial_number
+                logger.info(
+                    f"Serial extraction: {serial_number or 'not found'}",
+                    extra={"email_id": email_id, "serial_number": serial_number},
+                )
+            except Exception as e:
+                logger.warning(f"Serial extraction error: {str(e)} - continuing without serial")
+                serial_result = SerialExtractionResult(
+                    serial_number=None,
+                    confidence=0.0,
+                    multiple_serials_detected=False,
+                    all_detected_serials=[],
+                    extraction_method="error",
+                    ambiguous=True,
+                )
+
+            # Step 3: Detect scenario
+            logger.info(f"Step 3/4: Detecting scenario: {email_id}")
+            try:
+                detection_result = await self.detector.detect_scenario(email, serial_result)
+                scenario_used = detection_result.scenario_name
+                logger.info(
+                    f"Scenario detected: {scenario_used}",
+                    extra={"email_id": email_id, "scenario": scenario_used},
+                )
+            except Exception as e:
+                logger.warning(f"Scenario detection error: {str(e)} - using graceful-degradation")
+                scenario_used = "graceful-degradation"
+                detection_result = ScenarioDetectionResult(
+                    scenario_name="graceful-degradation",
+                    confidence=0.5,
+                    is_warranty_inquiry=False,
+                    detected_intent="unknown",
+                    detection_method="fallback",
+                    ambiguous=True,
+                )
+
+            # Step 4: LLM function calling
+            logger.info(f"Step 4/4: LLM function calling: {email_id}")
+            try:
+                # Use provided dispatcher or create one with MCP clients
+                if function_dispatcher is not None:
+                    dispatcher = function_dispatcher
+                else:
+                    dispatcher = FunctionDispatcher(
+                        warranty_client=self.warranty_client,
+                        ticketing_client=self.ticketing_client,
+                        gmail_client=self.gmail_client
+                    )
+
+                # Check if scenario supports function calling
+                scenario_instruction = self.response_generator.router.select_scenario(scenario_used)
+
+                if scenario_instruction.has_functions():
+                    # Use function calling
+                    result = await self.response_generator.generate_with_functions(
+                        scenario_name=scenario_used,
+                        email_content=email.body,
+                        function_dispatcher=dispatcher,
+                        serial_number=serial_number,
+                        customer_email=email.from_address
+                    )
+
+                    # Track function calls
+                    for fc in result.function_calls:
+                        function_calls.append({
+                            "function_name": fc.function_name,
+                            "arguments": fc.arguments,
+                            "result": fc.result,
+                            "success": fc.success,
+                            "execution_time_ms": fc.execution_time_ms
+                        })
+
+                        # Extract warranty status from check_warranty call
+                        if fc.function_name == "check_warranty" and fc.success:
+                            warranty_status = fc.result.get("status")
+
+                        # Check for ticket creation
+                        if fc.function_name == "create_ticket" and fc.success:
+                            ticket_created = True
+                            ticket_id = fc.result.get("ticket_id")
+
+                    response_sent = result.email_sent
+
+                    # Log function call summary
+                    logger.info(
+                        f"Function calling complete: {len(result.function_calls)} calls, "
+                        f"email_sent={result.email_sent}, turns={result.total_turns}",
+                        extra={
+                            "email_id": email_id,
+                            "function_calls_count": len(result.function_calls),
+                            "email_sent": result.email_sent,
+                            "total_turns": result.total_turns
+                        }
+                    )
+
+                    # Log each function call
+                    for i, fc in enumerate(result.function_calls, 1):
+                        status = "✓" if fc.success else "✗"
+                        logger.info(
+                            f"  {i}. {status} {fc.function_name}({_format_args(fc.arguments)}) "
+                            f"→ {_truncate(str(fc.result), 60)}"
+                        )
+
+                    # Validate send_email was called
+                    if not result.email_sent:
+                        failed_step = "function_calling"
+                        error_message = "send_email function was not called successfully"
+                        logger.error(
+                            f"Processing failed: {error_message}",
+                            extra={"email_id": email_id, "function_calls": function_calls}
+                        )
+                        raise ProcessingError(
+                            message=error_message,
+                            code="email_not_sent",
+                            details={
+                                "email_id": email_id,
+                                "scenario": scenario_used,
+                                "function_calls_count": len(function_calls)
+                            }
+                        )
+                else:
+                    # Scenario doesn't have functions - fall back to legacy processing
+                    logger.info(
+                        f"Scenario {scenario_used} has no functions defined, using legacy processing",
+                        extra={"email_id": email_id, "scenario": scenario_used}
+                    )
+                    return await self.process_email(raw_email)
+
+            except ProcessingError:
+                raise
+            except Exception as e:
+                failed_step = "function_calling"
+                error_message = f"Function calling failed: {str(e)}"
+                logger.error(error_message, extra={"email_id": email_id}, exc_info=True)
+                raise
+
+            # Calculate processing time
+            processing_time_ms = int((time.time() - start_time) * 1000)
+
+            if processing_time_ms > 60000:
+                logger.warning(
+                    f"Processing time exceeded 60s target: {processing_time_ms}ms",
+                    extra={"email_id": email_id, "processing_time_ms": processing_time_ms}
+                )
+
+            logger.info(
+                f"Email processing complete: {processing_time_ms}ms",
+                extra={
+                    "email_id": email_id,
+                    "status": "completed",
+                    "processing_time_ms": processing_time_ms,
+                    "scenario": scenario_used,
+                    "response_sent": response_sent,
+                    "ticket_created": ticket_created,
+                    "function_calls_count": len(function_calls)
+                }
+            )
+
+            return ProcessingResult(
+                success=True,
+                email_id=email_id,
+                scenario_used=scenario_used,
+                serial_number=serial_number,
+                warranty_status=warranty_status,
+                response_sent=response_sent,
+                ticket_created=ticket_created,
+                ticket_id=ticket_id,
+                processing_time_ms=processing_time_ms,
+                error_message=None,
+                failed_step=None,
+            )
+
+        except Exception as e:
+            processing_time_ms = int((time.time() - start_time) * 1000)
+
+            logger.error(
+                f"Email processing failed: {str(e)}",
+                extra={
+                    "email_id": email_id,
+                    "status": "failed",
+                    "failed_step": failed_step,
+                    "processing_time_ms": processing_time_ms,
+                },
+                exc_info=True,
+            )
+
+            return ProcessingResult(
+                success=False,
+                email_id=email_id,
+                scenario_used=scenario_used,
+                serial_number=serial_number,
+                warranty_status=warranty_status,
+                response_sent=response_sent,
+                ticket_created=ticket_created,
+                ticket_id=ticket_id,
+                processing_time_ms=processing_time_ms,
+                error_message=str(e),
+                failed_step=failed_step or "unknown",
+            )
+
+
+def _format_args(args: Dict[str, Any]) -> str:
+    """Format function arguments for logging."""
+    if not args:
+        return ""
+    parts = [f"{k}={_truncate(repr(v), 30)}" for k, v in args.items()]
+    return ", ".join(parts)
+
+
+def _truncate(s: str, max_len: int) -> str:
+    """Truncate string with ellipsis."""
+    return s if len(s) <= max_len else s[:max_len - 3] + "..."

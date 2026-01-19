@@ -1,0 +1,41 @@
+scenario_id: invalid_warranty_001
+description: "Customer with expired warranty requests status check"
+category: invalid-warranty
+created: "2026-01-19"
+
+input:
+  email:
+    subject: "Warranty check for SN98765"
+    body: "Hello, I need to check if my product with serial number SN98765 is still under warranty. Thanks!"
+    from: "customer@example.com"
+    received: "2026-01-19T10:00:00Z"
+
+  mock_function_responses:
+    check_warranty:
+      serial_number: "SN98765"
+      status: "expired"
+      expiration_date: "2024-06-15"
+      coverage: "none"
+    send_email:
+      message_id: "msg-ghi789"
+      status: "sent"
+
+expected_output:
+  scenario_instruction_used: "valid-warranty"  # Scenario detected before warranty status known
+  processing_time_ms: 60000
+
+  # Two function calls - check warranty, then inform customer (no ticket for expired)
+  expected_function_calls:
+    # Step 1: Check warranty status
+    - function_name: check_warranty
+      arguments:
+        serial_number: "SN98765"
+      result_contains:
+        status: "expired"
+
+    # Step 2: Send email explaining warranty expired (NO create_ticket for expired)
+    - function_name: send_email
+      arguments_contain:
+        to: "customer@example.com"
+      body_contains:
+        - "SN98765"

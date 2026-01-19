@@ -1,0 +1,29 @@
+scenario_id: missing_info_001
+description: "Customer inquiry without serial number"
+category: missing-info
+created: "2026-01-19"
+
+input:
+  email:
+    subject: "Warranty question"
+    body: "Hi, I bought a product last year and I'm not sure if it's still under warranty. Can you help me check? Thanks!"
+    from: "customer@example.com"
+    received: "2026-01-19T10:00:00Z"
+
+  # Only send_email mock needed - no warranty check without serial
+  mock_function_responses:
+    send_email:
+      message_id: "msg-def456"
+      status: "sent"
+
+expected_output:
+  scenario_instruction_used: "missing-info"
+  processing_time_ms: 60000
+
+  # Only one function call - ask for serial number
+  expected_function_calls:
+    - function_name: send_email
+      arguments_contain:
+        to: "customer@example.com"
+      body_contains:
+        - "numer seryjny"  # Polish: "serial number"

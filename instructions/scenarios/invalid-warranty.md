@@ -2,11 +2,40 @@
 name: invalid-warranty
 description: Response instructions for expired or invalid warranty inquiries
 trigger: invalid-warranty
-version: 1.1.0
+version: 2.0.0
+available_functions:
+  - name: check_warranty
+    description: Check warranty status for a product serial number. Returns warranty validity, expiration date, and coverage details.
+    parameters:
+      type: object
+      properties:
+        serial_number:
+          type: string
+          description: Product serial number to check warranty status for
+      required: [serial_number]
+  - name: send_email
+    description: Send email response to the customer. MUST be called as the final action to respond to the customer.
+    parameters:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Recipient email address
+        subject:
+          type: string
+          description: Email subject line
+        body:
+          type: string
+          description: Email body content in Polish
+      required: [to, subject, body]
 ---
 
 <objective>
-Generate an empathetic, solution-oriented response IN POLISH explaining that the warranty has expired or is invalid, while offering alternative support options (paid repair).
+Process invalid/expired warranty inquiries using the following workflow:
+1. Call check_warranty with the serial number to verify warranty status and get expiration date
+2. Call send_email to send an empathetic response IN POLISH explaining warranty status and offering alternative support options (paid repair)
+
+IMPORTANT: You MUST call send_email as your final action to respond to the customer.
 </objective>
 
 <language>

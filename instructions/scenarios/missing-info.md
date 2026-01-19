@@ -2,11 +2,30 @@
 name: missing-info
 description: Response for requests missing serial number or required information
 trigger: missing-info
-version: 1.1.0
+version: 2.0.0
+available_functions:
+  - name: send_email
+    description: Send email response to the customer requesting missing information. MUST be called to respond to the customer.
+    parameters:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Recipient email address
+        subject:
+          type: string
+          description: Email subject line
+        body:
+          type: string
+          description: Email body content in Polish requesting serial number
+      required: [to, subject, body]
 ---
 
 <objective>
-Politely request IN POLISH the missing information needed to process the warranty inquiry, specifically the product serial number.
+Request missing information needed to process the warranty inquiry:
+1. Call send_email to politely request the serial number IN POLISH, with guidance on where to find it
+
+IMPORTANT: You MUST call send_email to respond to the customer.
 </objective>
 
 <language>

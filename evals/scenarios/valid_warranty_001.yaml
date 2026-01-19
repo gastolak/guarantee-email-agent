@@ -10,23 +10,45 @@ input:
     from: "customer@example.com"
     received: "2026-01-18T10:00:00Z"
 
-  mock_responses:
-    warranty_api:
+  # Mock responses for function calls
+  mock_function_responses:
+    check_warranty:
+      serial_number: "SN12345"
       status: "valid"
       expiration_date: "2025-12-31"
       coverage: "full"
+    create_ticket:
+      ticket_id: "TKT-12345"
+      status: "created"
+    send_email:
+      message_id: "msg-abc123"
+      status: "sent"
 
 expected_output:
-  email_sent: true
-  response_body_contains:
-    - "warranty is valid"
-    - "2025-12-31"
-  response_body_excludes:
-    - "expired"
-    - "invalid"
-  ticket_created: true
-  ticket_fields:
-    serial_number: "SN12345"
-    warranty_status: "valid"
   scenario_instruction_used: "valid-warranty"
   processing_time_ms: 60000
+
+  # Function calls expected (in order)
+  expected_function_calls:
+    # Step 1: Check warranty status
+    - function_name: check_warranty
+      arguments:
+        serial_number: "SN12345"
+      result_contains:
+        status: "valid"
+
+    # Step 2: Create ticket for valid warranty
+    - function_name: create_ticket
+      arguments_contain:
+        serial_number: "SN12345"
+        customer_email: "customer@example.com"
+        priority: "normal"
+
+    # Step 3: Send email response to customer
+    - function_name: send_email
+      arguments_contain:
+        to: "customer@example.com"
+      body_contains:
+        - "SN12345"
+        - "2025-12-31"
+        - "TKT-12345"

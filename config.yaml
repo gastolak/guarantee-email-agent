@@ -6,8 +6,8 @@
 # Choose between Anthropic Claude or Google Gemini
 llm:
   provider: "gemini"  # "anthropic" or "gemini"
-  model: "gemini-2.0-flash-exp"  # Model name: "claude-3-5-sonnet-20241022" or "gemini-2.0-flash-exp"
-  temperature: 0.7
+  model: "gemini-3-flash-preview"  # Model name: "claude-3-5-sonnet-20241022" or "gemini-2.5-flash-preview-05-20"
+  temperature: 0  # Determinism for eval reproducibility
   max_tokens: 8192  # Gemini 2.0 Flash maximum output tokens (hard limit)
   timeout_seconds: 15
 

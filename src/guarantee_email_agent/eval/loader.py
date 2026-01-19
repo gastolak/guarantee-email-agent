@@ -10,6 +10,7 @@ from guarantee_email_agent.eval.models import (
     EvalInput,
     EvalExpectedOutput,
     EvalEmail,
+    ExpectedFunctionCall,
 )
 from guarantee_email_agent.utils.errors import EvalError
 
@@ -51,24 +52,41 @@ class EvalLoader:
             eval_input = EvalInput(
                 email=eval_email,
                 mock_responses=data["input"].get("mock_responses", {}),
+                mock_function_responses=data["input"].get("mock_function_responses"),
             )
 
+            # Parse expected function calls if present
+            expected_function_calls = None
+            if "expected_function_calls" in data["expected_output"]:
+                expected_function_calls = [
+                    ExpectedFunctionCall(
+                        function_name=fc["function_name"],
+                        arguments=fc.get("arguments"),
+                        arguments_contain=fc.get("arguments_contain"),
+                        result_contains=fc.get("result_contains"),
+                        body_contains=fc.get("body_contains"),
+                    )
+                    for fc in data["expected_output"]["expected_function_calls"]
+                ]
+
             eval_expected = EvalExpectedOutput(
-                email_sent=data["expected_output"]["email_sent"],
-                response_body_contains=data["expected_output"].get(
-                    "response_body_contains", []
-                ),
-                response_body_excludes=data["expected_output"].get(
-                    "response_body_excludes", []
-                ),
-                ticket_created=data["expected_output"]["ticket_created"],
-                ticket_fields=data["expected_output"].get("ticket_fields"),
                 scenario_instruction_used=data["expected_output"][
                     "scenario_instruction_used"
                 ],
                 processing_time_ms=data["expected_output"].get(
                     "processing_time_ms", 60000
                 ),
+                expected_function_calls=expected_function_calls,
+                # Legacy fields (optional for new format)
+                email_sent=data["expected_output"].get("email_sent"),
+                response_body_contains=data["expected_output"].get(
+                    "response_body_contains", []
+                ),
+                response_body_excludes=data["expected_output"].get(
+                    "response_body_excludes", []
+                ),
+                ticket_created=data["expected_output"].get("ticket_created"),
+                ticket_fields=data["expected_output"].get("ticket_fields"),
             )
 
             test_case = EvalTestCase(
@@ -147,21 +165,33 @@ class EvalLoader:
                 )
 
         # Validate expected_output section
-        required_output_fields = [
-            "email_sent",
-            "ticket_created",
-            "scenario_instruction_used",
-        ]
-        for field in required_output_fields:
-            if field not in data["expected_output"]:
-                raise EvalError(
-                    message=f"Missing expected_output.{field}",
-                    code="eval_missing_field",
-                    details={
-                        "file_path": file_path,
-                        "field": f"expected_output.{field}",
-                    },
-                )
+        # scenario_instruction_used is always required
+        if "scenario_instruction_used" not in data["expected_output"]:
+            raise EvalError(
+                message="Missing expected_output.scenario_instruction_used",
+                code="eval_missing_field",
+                details={
+                    "file_path": file_path,
+                    "field": "expected_output.scenario_instruction_used",
+                },
+            )
+
+        # Either expected_function_calls OR (email_sent + ticket_created) required
+        has_function_calls = "expected_function_calls" in data["expected_output"]
+        has_legacy_fields = (
+            "email_sent" in data["expected_output"]
+            and "ticket_created" in data["expected_output"]
+        )
+
+        if not has_function_calls and not has_legacy_fields:
+            raise EvalError(
+                message="Missing expected_output: need either expected_function_calls or (email_sent + ticket_created)",
+                code="eval_missing_field",
+                details={
+                    "file_path": file_path,
+                    "field": "expected_output validation",
+                },
+            )
 
     def discover_test_cases(self, directory: str) -> List[EvalTestCase]:
         """

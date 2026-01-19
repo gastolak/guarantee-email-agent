@@ -275,3 +275,225 @@ It should be accepted as valid.
 
     assert instruction.name == "plain-text"
     assert "plain text without XML" in instruction.body
+
+
+# Function loading tests
+
+def test_load_instruction_with_functions(tmp_path: Path):
+    """Test loading instruction with available_functions in frontmatter."""
+    instruction_file = tmp_path / "with-functions.md"
+    instruction_file.write_text("""---
+name: valid-warranty
+description: Valid warranty scenario
+version: 2.0.0
+trigger: valid-warranty
+available_functions:
+  - name: check_warranty
+    description: Check warranty status for serial number
+    parameters:
+      type: object
+      properties:
+        serial_number:
+          type: string
+          description: Product serial number
+      required: [serial_number]
+  - name: send_email
+    description: Send email to customer
+    parameters:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Recipient email
+        subject:
+          type: string
+          description: Email subject
+        body:
+          type: string
+          description: Email body
+      required: [to, subject, body]
+---
+
+<objective>Handle valid warranty requests</objective>
+""")
+
+    instruction = load_instruction(str(instruction_file))
+
+    assert instruction.name == "valid-warranty"
+    assert len(instruction.available_functions) == 2
+    assert instruction.available_functions[0]["name"] == "check_warranty"
+    assert instruction.available_functions[1]["name"] == "send_email"
+    assert instruction.has_functions() is True
+
+
+def test_load_instruction_no_functions(tmp_path: Path):
+    """Test loading instruction without available_functions."""
+    instruction_file = tmp_path / "no-functions.md"
+    instruction_file.write_text("""---
+name: main
+description: Main instruction
+version: 1.0.0
+---
+
+<objective>Main orchestration</objective>
+""")
+
+    instruction = load_instruction(str(instruction_file))
+
+    assert instruction.available_functions == []
+    assert instruction.has_functions() is False
+
+
+def test_load_instruction_empty_functions_list(tmp_path: Path):
+    """Test loading instruction with empty available_functions list."""
+    instruction_file = tmp_path / "empty-functions.md"
+    instruction_file.write_text("""---
+name: missing-info
+description: Missing info scenario
+version: 1.0.0
+available_functions: []
+---
+
+<objective>Request missing info</objective>
+""")
+
+    instruction = load_instruction(str(instruction_file))
+
+    assert instruction.available_functions == []
+    assert instruction.has_functions() is False
+
+
+def test_get_available_functions(tmp_path: Path):
+    """Test get_available_functions returns FunctionDefinition objects."""
+    instruction_file = tmp_path / "get-functions.md"
+    instruction_file.write_text("""---
+name: test-scenario
+description: Test scenario
+version: 1.0.0
+available_functions:
+  - name: check_warranty
+    description: Check warranty status
+    parameters:
+      type: object
+      properties:
+        serial_number:
+          type: string
+      required: [serial_number]
+---
+
+<objective>Test</objective>
+""")
+
+    instruction = load_instruction(str(instruction_file))
+    functions = instruction.get_available_functions()
+
+    assert len(functions) == 1
+    assert functions[0].name == "check_warranty"
+    assert functions[0].description == "Check warranty status"
+    assert functions[0].parameters["type"] == "object"
+    assert "serial_number" in functions[0].parameters["properties"]
+
+    # Test to_gemini_tool method
+    gemini_tool = functions[0].to_gemini_tool()
+    assert gemini_tool["name"] == "check_warranty"
+
+
+def test_load_instruction_function_missing_name(tmp_path: Path):
+    """Test loading instruction with function missing 'name'."""
+    instruction_file = tmp_path / "missing-func-name.md"
+    instruction_file.write_text("""---
+name: test
+description: Test
+version: 1.0.0
+available_functions:
+  - description: Missing name field
+    parameters:
+      type: object
+---
+
+<objective>Test</objective>
+""")
+
+    with pytest.raises(InstructionValidationError) as exc_info:
+        load_instruction(str(instruction_file))
+
+    assert "missing 'name'" in exc_info.value.message.lower()
+    assert exc_info.value.code == "instruction_function_missing_name"
+
+
+def test_load_instruction_function_missing_description(tmp_path: Path):
+    """Test loading instruction with function missing 'description'."""
+    instruction_file = tmp_path / "missing-func-desc.md"
+    instruction_file.write_text("""---
+name: test
+description: Test
+version: 1.0.0
+available_functions:
+  - name: check_warranty
+    parameters:
+      type: object
+---
+
+<objective>Test</objective>
+""")
+
+    with pytest.raises(InstructionValidationError) as exc_info:
+        load_instruction(str(instruction_file))
+
+    assert "missing 'description'" in exc_info.value.message.lower()
+    assert exc_info.value.code == "instruction_function_missing_description"
+
+
+def test_load_instruction_function_default_parameters(tmp_path: Path):
+    """Test function with no parameters gets default empty object."""
+    instruction_file = tmp_path / "default-params.md"
+    instruction_file.write_text("""---
+name: test
+description: Test
+version: 1.0.0
+available_functions:
+  - name: get_status
+    description: Get current status
+---
+
+<objective>Test</objective>
+""")
+
+    instruction = load_instruction(str(instruction_file))
+
+    assert len(instruction.available_functions) == 1
+    func = instruction.available_functions[0]
+    assert func["name"] == "get_status"
+    assert func["parameters"]["type"] == "object"
+    assert func["parameters"]["properties"] == {}
+
+
+def test_load_instruction_function_with_enum(tmp_path: Path):
+    """Test function parameter with enum values."""
+    instruction_file = tmp_path / "enum-params.md"
+    instruction_file.write_text("""---
+name: test
+description: Test
+version: 1.0.0
+available_functions:
+  - name: create_ticket
+    description: Create support ticket
+    parameters:
+      type: object
+      properties:
+        priority:
+          type: string
+          description: Ticket priority
+          enum: [low, normal, high, urgent]
+      required: [priority]
+---
+
+<objective>Test</objective>
+""")
+
+    instruction = load_instruction(str(instruction_file))
+    functions = instruction.get_available_functions()
+
+    assert len(functions) == 1
+    priority_param = functions[0].parameters["properties"]["priority"]
+    assert priority_param["enum"] == ["low", "normal", "high", "urgent"]

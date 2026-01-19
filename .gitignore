@@ -47,6 +47,9 @@ env/
 htmlcov/
 *.cover
 
+# Eval results (generated outputs)
+evals/results/
+
 # Logs
 *.log
 

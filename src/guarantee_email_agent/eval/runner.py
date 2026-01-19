@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 
 from guarantee_email_agent.config.schema import AgentConfig
 from guarantee_email_agent.config import load_config
@@ -15,8 +15,13 @@ from guarantee_email_agent.eval.models import (
     EvalTestCase,
     EvalResult,
     EvalExpectedOutput,
+    ActualFunctionCall,
 )
-from guarantee_email_agent.eval.mocks import create_mock_clients
+from guarantee_email_agent.eval.mocks import (
+    create_mock_clients,
+    create_mock_function_dispatcher,
+)
+from guarantee_email_agent.eval.validator import validate_function_calls
 from guarantee_email_agent.instructions.loader import load_instruction_cached
 from guarantee_email_agent.llm.response_generator import ResponseGenerator
 
@@ -58,15 +63,31 @@ class EvalRunner:
             # Create mock clients
             mocks = create_mock_clients(test_case)
 
+            # Create mock function dispatcher if using function calling
+            mock_dispatcher = None
+            if test_case.input.mock_function_responses:
+                mock_dispatcher = create_mock_function_dispatcher(test_case)
+
             # Process email with real EmailProcessor using mocked clients
-            actual_output = await self._process_with_mocks(test_case, mocks)
+            actual_output = await self._process_with_mocks(
+                test_case, mocks, mock_dispatcher
+            )
 
             # Measure processing time
             processing_time_ms = int((time.time() - start_time) * 1000)
 
+            # Get actual function calls from mock dispatcher
+            actual_function_calls: List[ActualFunctionCall] = []
+            if mock_dispatcher:
+                actual_function_calls = mock_dispatcher.get_function_calls()
+
             # Validate output
             passed, failures = self.validate_output(
-                test_case.expected_output, actual_output, mocks, processing_time_ms
+                test_case.expected_output,
+                actual_output,
+                mocks,
+                processing_time_ms,
+                actual_function_calls,
             )
 
             return EvalResult(
@@ -75,6 +96,7 @@ class EvalRunner:
                 failures=failures,
                 actual_output=actual_output,
                 processing_time_ms=processing_time_ms,
+                actual_function_calls=actual_function_calls,
             )
 
         except Exception as e:
@@ -90,13 +112,17 @@ class EvalRunner:
             )
 
     async def _process_with_mocks(
-        self, test_case: EvalTestCase, mocks: Dict[str, Any]
+        self,
+        test_case: EvalTestCase,
+        mocks: Dict[str, Any],
+        mock_dispatcher=None,
     ) -> Dict[str, Any]:
         """Process email using real EmailProcessor with mocked clients.
 
         Args:
             test_case: Eval test case with input email
             mocks: Mock clients (gmail, warranty, ticketing)
+            mock_dispatcher: Optional mock function dispatcher for function calling
 
         Returns:
             Processing result dictionary
@@ -141,8 +167,15 @@ class EvalRunner:
             "received": received_time,
         }
 
-        # Process email
-        result = await processor.process_email(raw_email)
+        # Process email - use function calling if mock dispatcher provided
+        if mock_dispatcher is not None:
+            result = await processor.process_email_with_functions(
+                raw_email,
+                use_function_calling=True,
+                function_dispatcher=mock_dispatcher
+            )
+        else:
+            result = await processor.process_email(raw_email)
 
         # Get response body from mock gmail client (last sent email)
         response_body = ""
@@ -190,6 +223,7 @@ class EvalRunner:
         actual: Dict[str, Any],
         mocks: Dict[str, Any],
         processing_time_ms: int,
+        actual_function_calls: Optional[List[ActualFunctionCall]] = None,
     ) -> Tuple[bool, List[str]]:
         """
         Validate actual output against expected output.
@@ -199,15 +233,24 @@ class EvalRunner:
             actual: Actual processing result
             mocks: Mock clients with captured data
             processing_time_ms: Actual processing time
+            actual_function_calls: Function calls made during execution
 
         Returns:
             Tuple of (passed, list of failure reasons)
         """
         failures = []
 
-        # Check email sent
+        # Validate function calls if expected
+        if expected.expected_function_calls and actual_function_calls is not None:
+            function_failures = validate_function_calls(
+                expected.expected_function_calls,
+                actual_function_calls
+            )
+            failures.extend(function_failures)
+
+        # Check email sent (legacy validation - also checked via function calls)
         email_sent = len(mocks["gmail"].sent_emails) > 0
-        if expected.email_sent != email_sent:
+        if expected.email_sent is not None and expected.email_sent != email_sent:
             failures.append(f"email_sent: expected {expected.email_sent}, got {email_sent}")
 
         # Check response body contains
@@ -224,9 +267,9 @@ class EvalRunner:
                         f"response_body_excludes: unwanted phrase '{phrase}' present"
                     )
 
-        # Check ticket created
+        # Check ticket created (only if explicitly expected, skip for function calling mode)
         ticket_created = len(mocks["ticketing"].created_tickets) > 0
-        if expected.ticket_created != ticket_created:
+        if expected.ticket_created is not None and expected.ticket_created != ticket_created:
             failures.append(
                 f"ticket_created: expected {expected.ticket_created}, got {ticket_created}"
             )
