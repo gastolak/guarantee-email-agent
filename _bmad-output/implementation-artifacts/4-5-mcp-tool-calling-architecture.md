@@ -1,6 +1,6 @@
 # Story 4.5: LLM Function Calling Architecture with Gemini
 
-Status: dev-complete
+Status: done
 
 ## Story
 
@@ -120,11 +120,11 @@ so that I can add new scenarios and tools without changing Python code, and leve
   - [x] Update other existing eval files
   - [x] Create additional eval cases covering function scenarios
 
-- [ ] **Task 13: Run full eval suite and verify** (AC: 7)
-  - [ ] Run `uv run python -m guarantee_email_agent eval` (requires GEMINI_API_KEY)
-  - [ ] Verify pass rate ≥99%
-  - [ ] Verify processing time <60s per scenario
-  - [ ] Verify function call overhead <15s total
+- [x] **Task 13: Run full eval suite and verify** (AC: 7)
+  - [x] Run eval suite (requires GEMINI_API_KEY)
+  - [x] Verify pass rate ≥99% ✓ **100% (3/3)**
+  - [x] Verify processing time <60s per scenario ✓ **~8-10s each**
+  - [x] Verify function call overhead <15s total ✓
 
 ## Dev Notes
 
@@ -217,11 +217,27 @@ available_functions:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
+- Eval results stored in `evals/results/` (gitignored)
+
 ### Completion Notes List
+
+1. **Key Fix**: `build_function_calling_system_message()` was including main instruction body which contained JSON output format that conflicted with function calling. Fixed by using only scenario instruction body.
+
+2. **IndexError Handling**: Added handling for Gemini returning empty response after function calls - breaks loop gracefully if `send_email` was already called.
+
+3. **Temperature=0**: Set explicitly for deterministic function selection.
+
+4. **Eval Results** (2026-01-19):
+   - `valid_warranty_001`: check_warranty → create_ticket → send_email ✓
+   - `invalid_warranty_001`: check_warranty → send_email (no ticket for expired) ✓
+   - `missing_info_001`: send_email (request serial number) ✓
+   - Pass rate: 100% (3/3), Duration: ~25s total
+
+5. **Model Used**: `gemini-3-flash-preview` (configured in config.yaml)
 
 ### File List
 
@@ -241,8 +257,21 @@ available_functions:
 - `src/guarantee_email_agent/eval/models.py`
 - `src/guarantee_email_agent/eval/runner.py`
 - `src/guarantee_email_agent/eval/reporter.py`
+- `src/guarantee_email_agent/eval/loader.py`
+- `src/guarantee_email_agent/eval/mocks.py`
 - `instructions/scenarios/valid-warranty.md`
 - `instructions/scenarios/invalid-warranty.md`
 - `instructions/scenarios/missing-info.md`
 - `instructions/scenarios/graceful-degradation.md`
 - `evals/scenarios/valid_warranty_001.yaml`
+- `evals/scenarios/TEMPLATE.yaml.example`
+- `config.yaml`
+- `.gitignore`
+
+**New Eval Scenarios:**
+- `evals/scenarios/invalid_warranty_001.yaml`
+- `evals/scenarios/missing_info_001.yaml`
+
+**New Test Files:**
+- `tests/llm/test_gemini_function_calling.py`
+- `tests/instructions/test_loader.py`
