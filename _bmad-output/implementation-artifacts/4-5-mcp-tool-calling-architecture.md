@@ -1,18 +1,19 @@
-# Story 4.5: MCP Tool-Calling Architecture with LLM Decision Making
+# Story 4.5: LLM Function Calling Architecture with Gemini
 
 **Epic:** Epic 4 - Evaluation Framework
-**Status:** Draft
+**Status:** Ready
 **Priority:** High
-**Estimated Effort:** 8-13 points (Large)
+**Estimated Effort:** 5-8 points (Medium)
 **Created:** 2026-01-18
+**Updated:** 2026-01-19
 **Dependencies:** Story 4.1 (Eval Framework), Story 3.6 (Email Processing Pipeline)
 
 ## Problem Statement
 
-The current architecture hardcodes which MCP clients to call in the Python code (processor.py). This creates several limitations:
+The current architecture hardcodes which clients to call in the Python code (processor.py). This creates several limitations:
 
 1. **Inflexible scenario handling**: All warranty inquiries call the same warranty API regardless of scenario needs
-2. **No per-scenario tool selection**: Can't specify different MCP tools for different scenarios
+2. **No per-scenario tool selection**: Can't specify different tools for different scenarios
 3. **Missed LLM capabilities**: Not leveraging LLM's reasoning to decide when/which tools to use
 4. **Scalability issues**: Adding new scenarios or tools requires Python code changes
 
@@ -24,47 +25,47 @@ The current architecture hardcodes which MCP clients to call in the Python code 
 
 ## Desired Outcome
 
-Implement true MCP tool-calling architecture where:
+Implement LLM function calling architecture where:
 
-1. **LLM decides which tools to call** based on scenario instructions and email content
-2. **Scenario instructions declare available tools** in YAML frontmatter
-3. **Tool execution is handled by MCP protocol** (mocked for eval, real for production)
-4. **Eval framework tests tool-calling behavior** with deterministic mock responses
-5. **Agent uses same architecture** for both eval (mocks) and production (real MCP servers)
+1. **LLM decides which functions to call** based on scenario instructions and email content
+2. **Scenario instructions declare available functions** in YAML frontmatter
+3. **Function execution is handled by a simple dispatcher** (mocked for eval, real for production)
+4. **Eval framework tests function-calling behavior** with deterministic mock responses
+5. **Agent uses same architecture** for both eval (mocks) and production (real clients)
 
 **Success Criteria:**
-- Anthropic's tool-calling API integrated with scenario-specific tool definitions
+- Gemini's function calling API integrated with scenario-specific function definitions
 - LLM autonomously decides when to call `check_warranty`, `create_ticket`, etc.
-- Scenario instructions specify available tools without Python code changes
-- Eval tests validate correct tool usage per scenario
-- Mock MCP clients return deterministic data for eval
+- Scenario instructions specify available functions without Python code changes
+- Eval tests validate correct function usage per scenario
+- Mock clients return deterministic data for eval
 - All existing eval tests pass with new architecture
 - Pass rate ≥99% maintained (NFR1)
 
 ## User Story
 
 **As a** warranty email agent developer
-**I want** the LLM to decide which MCP tools to call based on scenario instructions
-**So that** I can add new scenarios and tools without changing Python code, and leverage LLM reasoning for intelligent tool selection
+**I want** the LLM to decide which functions to call based on scenario instructions
+**So that** I can add new scenarios and tools without changing Python code, and leverage LLM reasoning for intelligent function selection
 
 ## Acceptance Criteria
 
-### AC1: Scenario Instructions Declare Available Tools
-- [ ] Scenario instruction YAML frontmatter includes `available_tools` list
-- [ ] Tool definitions include: tool name, description, parameter schema
-- [ ] Example: `valid-warranty.md` declares `warranty_api.check_warranty` and `ticketing_system.create_ticket`
-- [ ] Example: `missing-info.md` declares no tools (empty list)
-- [ ] Tool schemas follow Anthropic's tool definition format
+### AC1: Scenario Instructions Declare Available Functions
+- [ ] Scenario instruction YAML frontmatter includes `available_functions` list
+- [ ] Function definitions include: function name, description, parameter schema
+- [ ] Example: `valid-warranty.md` declares `check_warranty` and `create_ticket`
+- [ ] Example: `missing-info.md` declares no functions (empty list)
+- [ ] Function schemas follow Gemini's function declaration format
 
 **Example YAML frontmatter:**
 ```yaml
 ---
 name: valid-warranty
 description: Response for valid warranty inquiries
-available_tools:
+available_functions:
   - name: check_warranty
-    description: Check warranty status for a product serial number
-    input_schema:
+    description: Check warranty status for a product serial number. Returns warranty status, expiration date, and coverage details.
+    parameters:
       type: object
       properties:
         serial_number:
@@ -73,105 +74,150 @@ available_tools:
       required: [serial_number]
 
   - name: create_ticket
-    description: Create support ticket for valid warranty RMA
-    input_schema:
+    description: Create support ticket for valid warranty RMA. Only call after confirming warranty is valid.
+    parameters:
       type: object
       properties:
         serial_number:
           type: string
+          description: Product serial number
         customer_email:
           type: string
+          description: Customer email address
         priority:
           type: string
           enum: [low, normal, high, urgent]
-      required: [serial_number, customer_email]
+          description: Ticket priority level
+      required: [serial_number, customer_email, priority]
+
+  - name: send_email
+    description: Send email response to the customer. Call this as the LAST step after gathering all information.
+    parameters:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Recipient email address
+        subject:
+          type: string
+          description: Email subject line
+        body:
+          type: string
+          description: Email body content (in Polish)
+      required: [to, subject, body]
 ---
 ```
 
-### AC2: LLM Provider Supports Tool Calling
-- [ ] `AnthropicProvider` implements `create_message_with_tools()` method
-- [ ] Supports Anthropic's tool-calling API (Claude 3.5+)
-- [ ] Handles tool use requests from LLM
-- [ ] Executes tool calls via MCP client dispatch
-- [ ] Returns tool results to LLM for final response generation
-- [ ] Supports multi-turn tool calling (LLM → tool → LLM → tool → response)
-- [ ] Temperature=0 for deterministic tool selection
+### AC2: Gemini Provider Supports Function Calling
+- [ ] `GeminiProvider` implements `create_message_with_functions()` method
+- [ ] Uses `google.generativeai` function calling API
+- [ ] Handles function call requests from LLM
+- [ ] Executes function calls via dispatcher
+- [ ] Returns function results to LLM for final response generation
+- [ ] Supports multi-turn function calling (LLM → function → LLM → function → response)
+- [ ] Temperature defaults to 0 per NFR1 (maximum determinism), configurable for testing
 
 **API signature:**
 ```python
-async def create_message_with_tools(
+async def create_message_with_functions(
     self,
     system_prompt: str,
     user_prompt: str,
-    available_tools: List[Dict[str, Any]],
+    available_functions: List[FunctionDefinition],
+    function_dispatcher: FunctionDispatcher,
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None
-) -> ToolCallingResult:
-    """Generate response with tool calling support.
+) -> FunctionCallingResult:
+    """Generate response with function calling support.
+
+    Args:
+        system_prompt: System instruction for the LLM
+        user_prompt: User message/query
+        available_functions: List of functions the LLM can call
+        function_dispatcher: Dispatcher to execute function calls
+        max_tokens: Maximum tokens in response
+        temperature: Sampling temperature
 
     Returns:
-        ToolCallingResult with:
+        FunctionCallingResult with:
         - response_text: Final LLM response
-        - tool_calls: List of tools called (name, inputs, outputs)
-        - stop_reason: "end_turn" or "tool_use"
+        - function_calls: List of functions called (name, args, results)
+        - total_turns: Number of conversation turns
     """
 ```
 
-### AC3: MCP Client Dispatcher Routes Tool Calls
-- [ ] `MCPClientDispatcher` class created to route tool calls to correct client
-- [ ] Maps tool names to MCP client methods:
-  - `check_warranty` → `WarrantyMCPClient.check_warranty()`
-  - `create_ticket` → `TicketingMCPClient.create_ticket()`
-  - `send_email` → `GmailMCPClient.send_email()`
-- [ ] Validates tool input parameters against schema
-- [ ] Returns structured tool results
-- [ ] Handles tool execution errors gracefully
-- [ ] Logs all tool calls with input/output for debugging
+### AC3: Function Dispatcher Routes Calls to Clients
+- [ ] `FunctionDispatcher` class routes function calls to correct client methods
+- [ ] Maps function names to client methods:
+  - `check_warranty` → `warranty_client.check_warranty()`
+  - `create_ticket` → `ticketing_client.create_ticket()`
+  - `send_email` → `gmail_client.send_email()`
+- [ ] Validates function parameters against schema
+- [ ] Returns structured function results
+- [ ] Handles execution errors gracefully
+- [ ] Logs all function calls with input/output for debugging
+- [ ] Supports both mock clients (eval) and real clients (production)
 
 **Implementation:**
 ```python
-class MCPClientDispatcher:
-    """Dispatch tool calls to appropriate MCP clients."""
+class FunctionDispatcher:
+    """Dispatch function calls to appropriate clients."""
 
     def __init__(
         self,
-        warranty_client: WarrantyMCPClient,
-        ticketing_client: TicketingMCPClient,
-        gmail_client: GmailMCPClient
+        warranty_client: WarrantyClient,
+        ticketing_client: TicketingClient,
+        gmail_client: GmailClient
     ):
-        self.clients = {
+        self._handlers: Dict[str, Callable] = {
             "check_warranty": warranty_client.check_warranty,
             "create_ticket": ticketing_client.create_ticket,
             "send_email": gmail_client.send_email,
         }
 
-    async def execute_tool(
+    async def execute(
         self,
-        tool_name: str,
-        tool_input: Dict[str, Any]
+        function_name: str,
+        arguments: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Execute tool call and return result."""
-        if tool_name not in self.clients:
-            raise ValueError(f"Unknown tool: {tool_name}")
+        """Execute function call and return result.
 
-        tool_func = self.clients[tool_name]
-        result = await tool_func(**tool_input)
+        Args:
+            function_name: Name of function to call
+            arguments: Function arguments
 
-        return {
-            "tool_name": tool_name,
-            "tool_input": tool_input,
-            "tool_output": result
-        }
+        Returns:
+            Function execution result
+
+        Raises:
+            ValueError: If function_name is unknown
+        """
+        if function_name not in self._handlers:
+            raise ValueError(f"Unknown function: {function_name}")
+
+        handler = self._handlers[function_name]
+        result = await handler(**arguments)
+
+        logger.info(
+            "Function executed",
+            extra={
+                "function": function_name,
+                "arguments": arguments,
+                "result_keys": list(result.keys()) if isinstance(result, dict) else None
+            }
+        )
+
+        return result
 ```
 
-### AC4: Email Processor Uses Tool-Calling Architecture
-- [ ] `EmailProcessor.process_email()` refactored to use tool-calling
-- [ ] Loads scenario instruction with tool definitions
-- [ ] Passes available tools to LLM provider
-- [ ] Executes tool calls via MCP dispatcher
-- [ ] Handles multi-turn tool calling loop
+### AC4: Email Processor Uses Function-Calling Architecture
+- [ ] `EmailProcessor.process_email()` refactored to use function-calling
+- [ ] Loads scenario instruction with function definitions
+- [ ] Passes available functions to LLM provider
+- [ ] Executes function calls via dispatcher
+- [ ] Handles multi-turn function calling loop
 - [ ] Maintains same processing steps (parse → extract → detect → generate)
-- [ ] Backwards compatible with scenarios that don't use tools
+- [ ] Backwards compatible with scenarios that don't use functions
 
 **Processing flow:**
 ```python
@@ -180,35 +226,185 @@ email = self.parser.parse_email(raw_email)
 serial_result = await self.extractor.extract_serial_number(email)
 detection_result = await self.detector.detect_scenario(email, serial_result)
 
-# Step 4: Load scenario with tool definitions
+# Step 4: Load scenario with function definitions
 scenario_instruction = self.router.select_scenario(detection_result.scenario_name)
-available_tools = scenario_instruction.get_available_tools()
+available_functions = scenario_instruction.get_available_functions()
 
-# Step 5: Generate response with tool calling
-tool_result = await self.response_generator.generate_with_tools(
+# Step 5: Execute with function calling - LLM controls entire workflow
+# LLM will call check_warranty, create_ticket, and send_email as needed
+result = await self.response_generator.generate_with_functions(
     scenario_instruction=scenario_instruction,
-    email_content=email.body,
+    email=email,  # Full email object for context
     serial_number=serial_result.serial_number,
-    available_tools=available_tools
+    available_functions=available_functions,
+    function_dispatcher=self.function_dispatcher
 )
 
-# Step 6: Send response (tool might have already sent it)
-if not tool_result.email_sent_by_tool:
-    await self.gmail_client.send_email(...)
+# Step 6: Validate email was sent (required for all scenarios)
+if not result.email_sent:
+    raise ProcessingError(
+        message="LLM did not send email response",
+        code="email_not_sent",
+        details={"scenario": detection_result.scenario_name}
+    )
 ```
 
-### AC5: Eval Framework Tests Tool-Calling Behavior
-- [ ] Eval test cases specify expected tool calls
-- [ ] `EvalExpectedOutput` includes `expected_tool_calls` field
-- [ ] Validation checks: correct tools called, correct parameters, correct order
-- [ ] Mock clients return deterministic responses for eval
-- [ ] Tool call history tracked in eval results
-- [ ] Failed tool calls logged in eval failures
+### AC5: Eval Framework Tests Function-Calling Behavior
+- [ ] Eval test cases specify expected function calls via `expected_function_calls`
+- [ ] `EvalExpectedOutput` model includes `expected_function_calls` field
+- [ ] `EvalResult` model includes `actual_function_calls` for comparison
+- [ ] Validation checks: correct functions called, correct parameters, correct order
+- [ ] Mock dispatcher returns deterministic responses from `mock_function_responses`
+- [ ] Function call history tracked and displayed in eval results
+- [ ] Validation failures include detailed diff (expected vs actual)
+
+**Eval Data Models (updated):**
+```python
+# src/guarantee_email_agent/eval/models.py
+
+@dataclass(frozen=True)
+class ExpectedFunctionCall:
+    """Expected function call in eval test case."""
+    function_name: str
+    arguments: Optional[Dict[str, Any]] = None      # Exact match
+    arguments_contain: Optional[Dict[str, Any]] = None  # Partial match
+    result_contains: Optional[Dict[str, Any]] = None    # Validate result
+    body_contains: Optional[List[str]] = None       # For send_email body
+
+@dataclass(frozen=True)
+class ActualFunctionCall:
+    """Actual function call recorded during eval execution."""
+    function_name: str
+    arguments: Dict[str, Any]
+    result: Dict[str, Any]
+    success: bool
+    execution_time_ms: int
+    error_message: Optional[str] = None
+
+@dataclass
+class EvalResult:
+    """Result of executing one eval test case."""
+    test_case: EvalTestCase
+    passed: bool
+    failures: List[str]
+    actual_output: Dict[str, Any]
+    processing_time_ms: int
+    actual_function_calls: List[ActualFunctionCall]  # NEW: Track all calls
+```
+
+**Function Call Validation Logic:**
+```python
+# src/guarantee_email_agent/eval/validator.py
+
+def validate_function_calls(
+    expected: List[ExpectedFunctionCall],
+    actual: List[ActualFunctionCall]
+) -> List[str]:
+    """Validate function calls match expectations.
+
+    Returns list of failure messages (empty if all pass).
+    """
+    failures = []
+
+    # Check count matches
+    if len(actual) != len(expected):
+        failures.append(
+            f"Function call count mismatch: expected {len(expected)}, got {len(actual)}"
+        )
+        # List what was called
+        actual_names = [fc.function_name for fc in actual]
+        expected_names = [fc.function_name for fc in expected]
+        failures.append(f"  Expected: {expected_names}")
+        failures.append(f"  Actual: {actual_names}")
+        return failures
+
+    # Check each call in order
+    for i, (exp, act) in enumerate(zip(expected, actual)):
+        # Check function name
+        if exp.function_name != act.function_name:
+            failures.append(
+                f"Call {i+1}: Expected {exp.function_name}, got {act.function_name}"
+            )
+            continue
+
+        # Check arguments (exact match)
+        if exp.arguments:
+            for key, value in exp.arguments.items():
+                if key not in act.arguments:
+                    failures.append(f"Call {i+1} {exp.function_name}: Missing argument '{key}'")
+                elif act.arguments[key] != value:
+                    failures.append(
+                        f"Call {i+1} {exp.function_name}: Argument '{key}' "
+                        f"expected '{value}', got '{act.arguments[key]}'"
+                    )
+
+        # Check arguments (partial match)
+        if exp.arguments_contain:
+            for key, value in exp.arguments_contain.items():
+                if key not in act.arguments:
+                    failures.append(f"Call {i+1} {exp.function_name}: Missing argument '{key}'")
+                elif act.arguments[key] != value:
+                    failures.append(
+                        f"Call {i+1} {exp.function_name}: Argument '{key}' "
+                        f"expected '{value}', got '{act.arguments[key]}'"
+                    )
+
+        # Check result contains expected values
+        if exp.result_contains:
+            for key, value in exp.result_contains.items():
+                if key not in act.result:
+                    failures.append(f"Call {i+1} {exp.function_name}: Result missing '{key}'")
+                elif act.result[key] != value:
+                    failures.append(
+                        f"Call {i+1} {exp.function_name}: Result '{key}' "
+                        f"expected '{value}', got '{act.result[key]}'"
+                    )
+
+        # Check send_email body content
+        if exp.body_contains and exp.function_name == "send_email":
+            body = act.arguments.get("body", "")
+            for phrase in exp.body_contains:
+                if phrase.lower() not in body.lower():
+                    failures.append(
+                        f"Call {i+1} send_email: Body missing phrase '{phrase}'"
+                    )
+
+    return failures
+```
+
+**Eval Reporter Output (with function calls):**
+```
+Running evaluation suite... (3 scenarios)
+
+✓ valid_warranty_001: Customer with valid warranty requests status check
+  Function calls:
+    1. ✓ check_warranty(serial_number="SN12345")
+       → {"status": "valid", "expiration_date": "2025-12-31"}
+    2. ✓ create_ticket(serial_number="SN12345", customer_email="...")
+       → {"ticket_id": "TKT-12345"}
+    3. ✓ send_email(to="customer@example.com", subject="...", body="...")
+       → {"message_id": "msg-123", "status": "sent"}
+
+✗ invalid_warranty_001: Customer with expired warranty - FAILED
+  Function calls:
+    1. ✓ check_warranty(serial_number="SN98765")
+       → {"status": "expired", "expiration_date": "2024-06-15"}
+    2. ✗ send_email - Body missing phrase 'SN98765'
+  Failures:
+    - Call 2 send_email: Body missing phrase 'SN98765'
+
+✓ missing_info_001: Customer inquiry without serial number
+  Function calls:
+    1. ✓ send_email(to="customer@example.com", subject="...", body="...")
+       → {"message_id": "msg-456", "status": "sent"}
+
+Pass rate: 2/3 (66.7%)
+```
 
 **Eval test case format:**
 ```yaml
 scenario_id: valid_warranty_002
-description: Valid warranty with tool calling
+description: Valid warranty with function calling
 
 input:
   email:
@@ -217,50 +413,58 @@ input:
     from: "customer@example.com"
     received: "2026-01-18T10:00:00Z"
 
-  # Mock tool responses
-  mock_tool_responses:
+  # Mock function responses - dispatcher returns these
+  mock_function_responses:
     check_warranty:
       serial_number: "SN12345"
       status: "valid"
       expiration_date: "2025-12-31"
+    create_ticket:
+      ticket_id: "TKT-12345"
+      status: "created"
+    send_email:
+      message_id: "msg-abc123"
+      status: "sent"
 
 expected_output:
-  email_sent: true
-  ticket_created: true
+  scenario_instruction_used: "valid-warranty"
 
-  # NEW: Expected tool calls
-  expected_tool_calls:
-    - tool_name: check_warranty
-      tool_input:
+  # Expected function calls (in order) - PRIMARY VALIDATION
+  expected_function_calls:
+    - function_name: check_warranty
+      arguments:
         serial_number: "SN12345"
-      tool_output_contains:
+      result_contains:
         status: "valid"
 
-    - tool_name: create_ticket
-      tool_input_contains:
+    - function_name: create_ticket
+      arguments_contain:
         serial_number: "SN12345"
         customer_email: "customer@example.com"
 
-  response_body_contains:
-    - "warranty is valid"
-    - "2025-12-31"
-
-  scenario_instruction_used: "valid-warranty"
+    - function_name: send_email
+      arguments_contain:
+        to: "customer@example.com"
+      body_contains:
+        - "gwarancja"  # Polish for "warranty"
+        - "2025-12-31"
+        - "TKT-12345"
 ```
 
-### AC6: All Scenarios Support Tool-Calling
-- [ ] `valid-warranty.md` updated with `check_warranty` + `create_ticket` tools
-- [ ] `invalid-warranty.md` updated with `check_warranty` tool only
-- [ ] `missing-info.md` has empty tools list (no tools needed)
-- [ ] `graceful-degradation.md` has fallback tools if applicable
-- [ ] All scenario instructions include tool usage guidance in `<objective>`
-- [ ] Instruction templates updated with tool-calling examples
+### AC6: All Scenarios Have send_email Function
+- [ ] `valid-warranty.md`: `check_warranty` + `create_ticket` + `send_email`
+- [ ] `invalid-warranty.md`: `check_warranty` + `send_email`
+- [ ] `missing-info.md`: `send_email` only (no data lookup needed)
+- [ ] `graceful-degradation.md`: `send_email` only
+- [ ] All scenarios MUST call `send_email` as final step
+- [ ] All scenario instructions include function usage guidance in `<objective>`
+- [ ] LLM composes email content based on gathered information
 
-### AC7: Backwards Compatibility and Migration
-- [ ] Existing eval tests continue to pass (with tool-calling disabled flag)
-- [ ] `ResponseGenerator` supports both old and new modes
-- [ ] Migration guide documents how to convert scenarios to tool-calling
-- [ ] Performance benchmarks show <5% overhead from tool-calling
+### AC7: Validation and Error Handling
+- [ ] Processing fails if LLM does not call `send_email` (required for all scenarios)
+- [ ] Function call errors are logged and reported to LLM for recovery
+- [ ] Max 10 function call iterations to prevent infinite loops
+- [ ] Performance benchmarks show <15s total function-calling overhead
 - [ ] All NFRs still met (NFR7: <60s processing, NFR1: ≥99% pass rate)
 
 ## Technical Design
@@ -270,248 +474,295 @@ expected_output:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Scenario Instruction (valid-warranty.md)                       │
-│  - Declares available_tools: [check_warranty, create_ticket]    │
+│  - available_functions: [check_warranty, create_ticket, send_email]
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  ResponseGenerator.generate_with_tools()                        │
+│  ResponseGenerator.generate_with_functions()                    │
 │  - Builds system prompt with scenario instruction               │
-│  - Builds user prompt with email + serial number                │
-│  - Passes tool definitions to LLM provider                      │
+│  - Builds user prompt with email content + serial number        │
+│  - Converts functions to Gemini Tool format                     │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  AnthropicProvider.create_message_with_tools()                  │
-│  - Calls Claude API with tools parameter                        │
-│  - LLM decides: "I need to check warranty for SN12345"          │
-│  - Returns tool_use request                                     │
+│  GeminiProvider.create_message_with_functions()                 │
+│  - LLM decides: "First, check warranty for SN12345"             │
+│  - Returns function_call: check_warranty                        │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  MCPClientDispatcher.execute_tool("check_warranty", {...})      │
-│  - Routes to WarrantyMCPClient.check_warranty(serial="SN12345") │
+│  FunctionDispatcher.execute("check_warranty", {serial: "SN12345"})
 │  - Returns: {status: "valid", expiration_date: "2025-12-31"}    │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  AnthropicProvider (continues)                                  │
-│  - Sends tool result back to LLM                                │
-│  - LLM decides: "I need to create ticket"                       │
-│  - Returns another tool_use request                             │
+│  GeminiProvider (turn 2)                                        │
+│  - LLM sees warranty is valid                                   │
+│  - LLM decides: "Create ticket for valid warranty"              │
+│  - Returns function_call: create_ticket                         │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  MCPClientDispatcher.execute_tool("create_ticket", {...})       │
-│  - Routes to TicketingMCPClient.create_ticket(...)              │
-│  - Returns: {ticket_id: "TKT-123"}                              │
+│  FunctionDispatcher.execute("create_ticket", {...})             │
+│  - Returns: {ticket_id: "TKT-123", status: "created"}           │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  AnthropicProvider (final turn)                                 │
-│  - Sends ticket result back to LLM                              │
-│  - LLM generates final response text                            │
-│  - Returns: "Your warranty is valid until 2025-12-31..."        │
+│  GeminiProvider (turn 3)                                        │
+│  - LLM has all info: warranty valid, ticket created             │
+│  - LLM decides: "Send email response to customer"               │
+│  - Returns function_call: send_email                            │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  FunctionDispatcher.execute("send_email", {                     │
+│    to: "customer@example.com",                                  │
+│    subject: "Re: RMA request",                                  │
+│    body: "Szanowny Kliencie, Twoja gwarancja jest ważna..."     │
+│  })                                                             │
+│  - Returns: {message_id: "msg-123", status: "sent"}             │
+└─────────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  GeminiProvider (complete)                                      │
+│  - LLM confirms: "Email sent successfully"                      │
+│  - Returns FunctionCallingResult with email_sent=true           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### File Changes
 
 **New Files:**
-1. `src/guarantee_email_agent/integrations/mcp/dispatcher.py` - MCP client dispatcher
-2. `src/guarantee_email_agent/llm/tool_calling.py` - Tool-calling models and utilities
-3. `src/guarantee_email_agent/instructions/tool_loader.py` - Load tool definitions from YAML
-4. `tests/llm/test_tool_calling.py` - Unit tests for tool-calling
-5. `tests/integrations/test_mcp_dispatcher.py` - Dispatcher tests
-6. `docs/architecture/mcp-tool-calling.md` - Architecture documentation
+1. `src/guarantee_email_agent/llm/function_calling.py` - Function calling models and utilities
+2. `src/guarantee_email_agent/llm/function_dispatcher.py` - Function dispatcher
+3. `src/guarantee_email_agent/instructions/function_loader.py` - Load function definitions from YAML
+4. `src/guarantee_email_agent/eval/validator.py` - Function call validation logic
+5. `tests/llm/test_function_calling.py` - Unit tests for function-calling
+6. `tests/llm/test_function_dispatcher.py` - Dispatcher tests
+7. `tests/eval/test_function_validation.py` - Eval function validation tests
 
 **Modified Files:**
 1. `src/guarantee_email_agent/llm/provider.py`
-   - Add `create_message_with_tools()` to `AnthropicProvider`
-   - Add tool-calling loop logic
+   - Add `create_message_with_functions()` to `GeminiProvider`
+   - Add function-calling loop logic
 
 2. `src/guarantee_email_agent/llm/response_generator.py`
-   - Add `generate_with_tools()` method
-   - Support both old and new generation modes
+   - Add `generate_with_functions()` method
+   - Support both standard and function-calling generation
 
 3. `src/guarantee_email_agent/email/processor.py`
-   - Refactor to use tool-calling architecture
-   - Add tool call tracking for logging
+   - Refactor to use function-calling architecture
+   - Add function call tracking for logging
 
 4. `src/guarantee_email_agent/instructions/loader.py`
-   - Parse `available_tools` from YAML frontmatter
-   - Validate tool schemas
+   - Parse `available_functions` from YAML frontmatter
+   - Validate function schemas
 
 5. `src/guarantee_email_agent/eval/models.py`
-   - Add `expected_tool_calls` to `EvalExpectedOutput`
-   - Add `tool_calls` to `EvalResult`
+   - Add `expected_function_calls` to `EvalExpectedOutput`
+   - Add `function_calls` to `EvalResult`
 
 6. `src/guarantee_email_agent/eval/runner.py`
-   - Track tool calls during eval execution
-   - Validate tool usage against expectations
+   - Track function calls during eval execution
+   - Validate function usage against expectations
 
 7. `instructions/scenarios/valid-warranty.md`
-   - Add `available_tools` to frontmatter
-   - Update objective with tool usage guidance
+   - Add `available_functions` to frontmatter
+   - Update objective with function usage guidance
 
 8. `instructions/scenarios/invalid-warranty.md`
-   - Add `check_warranty` tool only
+   - Add `check_warranty` function only
 
 9. `instructions/scenarios/missing-info.md`
-   - Set `available_tools: []` (no tools needed)
+   - Set `available_functions: []` (no functions needed)
 
 ### Data Models
 
 ```python
-# src/guarantee_email_agent/llm/tool_calling.py
+# src/guarantee_email_agent/llm/function_calling.py
 
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
-class ToolDefinition(BaseModel):
-    """Tool definition for LLM tool-calling."""
+
+class FunctionParameter(BaseModel):
+    """Parameter definition for a function."""
+    type: str
+    description: str
+    enum: Optional[List[str]] = None
+
+
+class FunctionDefinition(BaseModel):
+    """Function definition for LLM function-calling."""
     name: str
     description: str
-    input_schema: Dict[str, Any]  # JSON Schema for tool inputs
+    parameters: Dict[str, Any]  # JSON Schema for function parameters
 
-class ToolCall(BaseModel):
-    """Record of a tool call execution."""
-    tool_name: str
-    tool_input: Dict[str, Any]
-    tool_output: Dict[str, Any]
+    def to_gemini_tool(self) -> Dict[str, Any]:
+        """Convert to Gemini Tool format."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.parameters
+        }
+
+
+class FunctionCall(BaseModel):
+    """Record of a function call execution."""
+    function_name: str
+    arguments: Dict[str, Any]
+    result: Dict[str, Any]
     execution_time_ms: int
     success: bool
     error_message: Optional[str] = None
 
-class ToolCallingResult(BaseModel):
-    """Result from LLM generation with tool calling."""
+
+class FunctionCallingResult(BaseModel):
+    """Result from LLM generation with function calling."""
     response_text: str
-    tool_calls: List[ToolCall]
-    stop_reason: str  # "end_turn" or "tool_use"
-    total_tokens: int
-    tool_call_count: int
+    function_calls: List[FunctionCall]
+    total_turns: int
+    email_sent: bool = False  # True if send_email was called successfully
 ```
 
-### Tool-Calling Implementation Pattern
+### Gemini Function-Calling Implementation
 
 ```python
-# Anthropic's tool-calling API pattern
+# In src/guarantee_email_agent/llm/provider.py
 
-async def create_message_with_tools(
-    self,
-    system_prompt: str,
-    user_prompt: str,
-    available_tools: List[ToolDefinition],
-    max_tokens: int = 2048,
-    temperature: float = 0
-) -> ToolCallingResult:
-    """Generate response with tool calling support."""
+import google.generativeai as genai
+from google.generativeai.types import FunctionDeclaration, Tool
 
-    messages = [{"role": "user", "content": user_prompt}]
-    tool_calls = []
 
-    # Convert tools to Anthropic format
-    tools = [
-        {
-            "name": tool.name,
-            "description": tool.description,
-            "input_schema": tool.input_schema
-        }
-        for tool in available_tools
-    ]
+class GeminiProvider(LLMProvider):
+    """Google Gemini LLM provider with function calling support."""
 
-    # Tool-calling loop (max 10 iterations to prevent infinite loops)
-    for iteration in range(10):
-        response = self.client.messages.create(
-            model=self.config.model,
-            system=system_prompt,
-            messages=messages,
+    async def create_message_with_functions(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        available_functions: List[FunctionDefinition],
+        function_dispatcher: FunctionDispatcher,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None
+    ) -> FunctionCallingResult:
+        """Generate response with function calling support."""
+
+        # Convert functions to Gemini Tool format
+        function_declarations = [
+            FunctionDeclaration(
+                name=f.name,
+                description=f.description,
+                parameters=f.parameters
+            )
+            for f in available_functions
+        ]
+        tools = [Tool(function_declarations=function_declarations)]
+
+        # Create model with tools
+        model = genai.GenerativeModel(
+            self.config.model,
             tools=tools,
-            max_tokens=max_tokens,
-            temperature=temperature
+            system_instruction=system_prompt
         )
 
-        # Check stop reason
-        if response.stop_reason == "end_turn":
-            # LLM finished - extract final text
-            final_text = self._extract_text_from_response(response)
-            return ToolCallingResult(
-                response_text=final_text,
-                tool_calls=tool_calls,
-                stop_reason="end_turn",
-                total_tokens=response.usage.total_tokens,
-                tool_call_count=len(tool_calls)
-            )
+        # Start chat for multi-turn conversation
+        chat = model.start_chat()
+        function_calls: List[FunctionCall] = []
+        total_turns = 0
 
-        elif response.stop_reason == "tool_use":
-            # LLM wants to use a tool
-            tool_use_block = self._extract_tool_use(response)
-            tool_name = tool_use_block["name"]
-            tool_input = tool_use_block["input"]
+        # Initial message
+        response = chat.send_message(user_prompt)
+        total_turns += 1
 
-            # Execute tool via dispatcher
-            start_time = time.time()
-            try:
-                tool_output = await self.mcp_dispatcher.execute_tool(
-                    tool_name=tool_name,
-                    tool_input=tool_input
-                )
-                execution_time_ms = int((time.time() - start_time) * 1000)
+        # Function calling loop (max 10 iterations)
+        while total_turns < 10:
+            # Check if LLM wants to call a function
+            if not response.candidates[0].content.parts:
+                break
 
-                # Record successful tool call
-                tool_calls.append(ToolCall(
-                    tool_name=tool_name,
-                    tool_input=tool_input,
-                    tool_output=tool_output,
-                    execution_time_ms=execution_time_ms,
-                    success=True
-                ))
+            part = response.candidates[0].content.parts[0]
 
-                # Add tool result to conversation
-                messages.append({
-                    "role": "assistant",
-                    "content": response.content
-                })
-                messages.append({
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": tool_use_block["id"],
-                        "content": json.dumps(tool_output)
-                    }]
-                })
+            # Check for function call
+            if hasattr(part, 'function_call') and part.function_call:
+                fc = part.function_call
+                function_name = fc.name
+                arguments = dict(fc.args)
 
-            except Exception as e:
-                # Tool execution failed
-                execution_time_ms = int((time.time() - start_time) * 1000)
-                tool_calls.append(ToolCall(
-                    tool_name=tool_name,
-                    tool_input=tool_input,
-                    tool_output={},
-                    execution_time_ms=execution_time_ms,
-                    success=False,
-                    error_message=str(e)
-                ))
+                # Execute function via dispatcher
+                start_time = time.time()
+                try:
+                    result = await function_dispatcher.execute(
+                        function_name=function_name,
+                        arguments=arguments
+                    )
+                    execution_time_ms = int((time.time() - start_time) * 1000)
 
-                # Return error to LLM
-                messages.append({
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": tool_use_block["id"],
-                        "content": f"Error: {str(e)}",
-                        "is_error": True
-                    }]
-                })
+                    function_calls.append(FunctionCall(
+                        function_name=function_name,
+                        arguments=arguments,
+                        result=result,
+                        execution_time_ms=execution_time_ms,
+                        success=True
+                    ))
 
-        else:
-            raise ValueError(f"Unexpected stop_reason: {response.stop_reason}")
+                    # Send function result back to LLM
+                    response = chat.send_message(
+                        genai.protos.Content(
+                            parts=[genai.protos.Part(
+                                function_response=genai.protos.FunctionResponse(
+                                    name=function_name,
+                                    response={"result": result}
+                                )
+                            )]
+                        )
+                    )
+                    total_turns += 1
 
-    # Max iterations reached
-    raise LLMError(
-        message="Tool-calling loop exceeded max iterations (10)",
-        code="tool_calling_max_iterations",
-        details={"tool_calls": len(tool_calls)}
-    )
+                except Exception as e:
+                    execution_time_ms = int((time.time() - start_time) * 1000)
+                    function_calls.append(FunctionCall(
+                        function_name=function_name,
+                        arguments=arguments,
+                        result={},
+                        execution_time_ms=execution_time_ms,
+                        success=False,
+                        error_message=str(e)
+                    ))
+
+                    # Send error back to LLM
+                    response = chat.send_message(
+                        genai.protos.Content(
+                            parts=[genai.protos.Part(
+                                function_response=genai.protos.FunctionResponse(
+                                    name=function_name,
+                                    response={"error": str(e)}
+                                )
+                            )]
+                        )
+                    )
+                    total_turns += 1
+
+            else:
+                # No function call - LLM has finished
+                break
+
+        # Extract final text response
+        final_text = ""
+        if response.candidates[0].content.parts:
+            part = response.candidates[0].content.parts[0]
+            if hasattr(part, 'text'):
+                final_text = clean_markdown_response(part.text)
+
+        # Check if email was sent via send_email function
+        email_sent = any(fc.function_name == "send_email" and fc.success for fc in function_calls)
+
+        return FunctionCallingResult(
+            response_text=final_text,
+            function_calls=function_calls,
+            total_turns=total_turns,
+            email_sent=email_sent
+        )
 ```
 
 ### Scenario Instruction Updates
@@ -523,10 +774,10 @@ name: valid-warranty
 description: Response instructions for valid warranty inquiries
 trigger: valid-warranty
 version: 2.0.0
-available_tools:
+available_functions:
   - name: check_warranty
-    description: Check warranty status for a product serial number. Returns warranty status, expiration date, and coverage details.
-    input_schema:
+    description: Check warranty status for a product serial number. Returns warranty status, expiration date, and coverage details. Always call this first.
+    parameters:
       type: object
       properties:
         serial_number:
@@ -535,8 +786,8 @@ available_tools:
       required: [serial_number]
 
   - name: create_ticket
-    description: Create a support ticket for valid warranty RMA claims. Should only be called after confirming warranty is valid.
-    input_schema:
+    description: Create a support ticket for valid warranty RMA claims. Only call this AFTER check_warranty confirms the warranty is valid.
+    parameters:
       type: object
       properties:
         serial_number:
@@ -545,29 +796,40 @@ available_tools:
         customer_email:
           type: string
           description: Customer email address
-        customer_name:
-          type: string
-          description: Customer name
         priority:
           type: string
           enum: [low, normal, high, urgent]
           description: Ticket priority level
-        category:
+      required: [serial_number, customer_email, priority]
+
+  - name: send_email
+    description: Send email response to the customer. MUST be called as the final step.
+    parameters:
+      type: object
+      properties:
+        to:
           type: string
-          description: Ticket category (e.g., warranty_claim, rma)
+          description: Recipient email address
         subject:
           type: string
-          description: Ticket subject line
-      required: [serial_number, customer_email, priority, category]
+          description: Email subject line (in Polish)
+        body:
+          type: string
+          description: Email body content (in Polish, professional tone)
+      required: [to, subject, body]
 ---
 
 <objective>
-Generate a professional response IN POLISH for valid warranty inquiries.
+Handle valid warranty inquiries by checking warranty, creating ticket, and sending response.
 
-**Tool Usage:**
-1. First, call check_warranty() with the serial number to verify status and get expiration date
-2. If warranty is valid, call create_ticket() to create RMA tracking ticket
-3. Include warranty details (expiration date) and ticket confirmation in response
+**Function Usage (IMPORTANT - follow this order):**
+1. Call check_warranty() with the serial number to verify status
+2. If warranty is VALID: call create_ticket() to create RMA tracking
+3. If warranty is NOT valid: skip create_ticket
+4. ALWAYS call send_email() as the final step with a professional Polish response that includes:
+   - Warranty status and expiration date
+   - Ticket ID (if created)
+   - Next steps for the customer
 </objective>
 
 [Rest of instruction unchanged...]
@@ -580,14 +842,30 @@ name: missing-info
 description: Response for requests missing serial number
 trigger: missing-info
 version: 2.0.0
-available_tools: []  # No tools needed - just generate helpful response
+available_functions:
+  - name: send_email
+    description: Send email response to the customer asking for missing information.
+    parameters:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Recipient email address
+        subject:
+          type: string
+          description: Email subject line (in Polish)
+        body:
+          type: string
+          description: Email body content (in Polish, helpful tone)
+      required: [to, subject, body]
 ---
 
 <objective>
-Politely request IN POLISH the missing serial number.
+Request the missing serial number from the customer.
 
-**Tool Usage:**
-No tools needed for this scenario. Generate a helpful response asking for the serial number.
+**Function Usage:**
+1. Call send_email() with a polite Polish response asking the customer to provide their product serial number
+2. Include helpful guidance on where to find the serial number
 </objective>
 
 [Rest of instruction unchanged...]
@@ -595,188 +873,145 @@ No tools needed for this scenario. Generate a helpful response asking for the se
 
 ## Implementation Plan
 
-### Phase 1: Core Tool-Calling Infrastructure (3-5 days)
+### Phase 1: Core Function-Calling Infrastructure (2-3 days)
 **Tasks:**
-1. Create `tool_calling.py` with data models
-2. Create `MCPClientDispatcher` class
-3. Add `create_message_with_tools()` to `AnthropicProvider`
-4. Write unit tests for tool-calling logic
-5. Test with simple single-tool scenario
+1. Create `function_calling.py` with data models (FunctionDefinition, FunctionCall, FunctionCallingResult)
+2. Create `FunctionDispatcher` class
+3. Add `create_message_with_functions()` to `GeminiProvider`
+4. Write unit tests for function-calling logic
+5. Test with simple single-function scenario
 
 **Deliverables:**
-- Tool-calling models defined
-- Dispatcher routing tool calls correctly
-- Anthropic provider executing tool-calling loop
+- Function-calling models defined
+- Dispatcher routing function calls correctly
+- Gemini provider executing function-calling loop
 - Unit tests passing
 
-### Phase 2: Scenario Tool Definitions (2-3 days)
+### Phase 2: Scenario Function Definitions (1-2 days)
 **Tasks:**
-1. Update `InstructionLoader` to parse `available_tools` from YAML
-2. Create `ToolDefinitionLoader` to validate tool schemas
-3. Update all scenario instructions with tool definitions
-4. Add tool usage guidance to instruction objectives
+1. Update `InstructionLoader` to parse `available_functions` from YAML
+2. Validate function schemas
+3. Update scenario instructions with function definitions
+4. Add function usage guidance to instruction objectives
 
 **Deliverables:**
-- Scenario instructions declare tools
-- Tool definitions validated against schemas
+- Scenario instructions declare functions
+- Function definitions validated against schemas
 - All 4 scenarios updated (valid, invalid, missing, degradation)
 
-### Phase 3: Email Processor Integration (3-4 days)
+### Phase 3: Email Processor Integration (2-3 days)
 **Tasks:**
-1. Refactor `EmailProcessor.process_email()` to use tool-calling
-2. Update `ResponseGenerator.generate_with_tools()`
-3. Wire up MCP dispatcher with existing clients
-4. Add tool call logging and tracking
+1. Refactor `EmailProcessor.process_email()` to use function-calling
+2. Update `ResponseGenerator.generate_with_functions()`
+3. Wire up dispatcher with existing clients
+4. Add function call logging and tracking
 5. Maintain backwards compatibility
 
 **Deliverables:**
-- Email processor uses tool-calling architecture
-- Tool calls logged with input/output
+- Email processor uses function-calling architecture
+- Function calls logged with input/output
 - Existing functionality preserved
 - Performance benchmarks meet targets
 
-### Phase 4: Eval Framework Updates (2-3 days)
+### Phase 4: Eval Framework Updates (1-2 days)
 **Tasks:**
-1. Add `expected_tool_calls` to eval test case schema
-2. Update `EvalRunner` to track and validate tool calls
-3. Update `EvalReporter` to show tool call results
-4. Create new eval test cases with tool-calling expectations
-5. Migrate existing eval tests to new format
+1. Add `expected_function_calls` to eval test case schema
+2. Update `EvalRunner` to track and validate function calls
+3. Update `EvalReporter` to show function call results
+4. Create new eval test cases with function-calling expectations
+5. Update existing eval tests as needed
 
 **Deliverables:**
-- Eval validates tool usage
-- Tool call history in eval results
-- All eval tests pass with tool-calling
+- Eval validates function usage
+- Function call history in eval results
+- All eval tests pass with function-calling
 - Pass rate ≥99% maintained
-
-### Phase 5: Documentation and Migration (1-2 days)
-**Tasks:**
-1. Write MCP tool-calling architecture documentation
-2. Create migration guide for scenarios
-3. Update README with tool-calling examples
-4. Document tool definition format and best practices
-5. Add troubleshooting guide for tool-calling issues
-
-**Deliverables:**
-- Architecture docs complete
-- Migration guide published
-- Examples documented
-- Team trained on new architecture
 
 ## Testing Strategy
 
 ### Unit Tests
-- `test_tool_calling.py`: ToolDefinition, ToolCall, ToolCallingResult models
-- `test_mcp_dispatcher.py`: Dispatcher routing, error handling
-- `test_anthropic_tool_calling.py`: Tool-calling loop, multi-turn conversations
-- `test_tool_loader.py`: YAML parsing, schema validation
+- `test_function_calling.py`: FunctionDefinition, FunctionCall, FunctionCallingResult models
+- `test_function_dispatcher.py`: Dispatcher routing, error handling
+- `test_gemini_function_calling.py`: Function-calling loop, multi-turn conversations
+- `test_function_loader.py`: YAML parsing, schema validation
 
 ### Integration Tests
-- `test_processor_with_tools.py`: End-to-end processing with tool-calling
-- `test_eval_tool_validation.py`: Eval framework validates tool usage
-- `test_scenario_tool_integration.py`: Each scenario uses correct tools
+- `test_processor_with_functions.py`: End-to-end processing with function-calling
+- `test_eval_function_validation.py`: Eval framework validates function usage
+- `test_scenario_function_integration.py`: Each scenario uses correct functions
 
 ### Eval Tests
-- Create 5+ new eval test cases per scenario with `expected_tool_calls`
+- Create 3+ new eval test cases per scenario with `expected_function_calls`
 - Test cases cover:
-  - Single tool call (check_warranty only)
-  - Multiple tool calls (check_warranty + create_ticket)
-  - No tool calls (missing-info scenario)
-  - Tool call with error handling
-  - Tool call parameter validation
-
-### Performance Tests
-- Measure overhead of tool-calling vs direct calls
-- Ensure <5% performance impact
-- Validate NFR7 still met (<60s p95 processing time)
-- Check LLM token usage increase
+  - Single function call (check_warranty only)
+  - Multiple function calls (check_warranty + create_ticket)
+  - No function calls (missing-info scenario)
+  - Function call with error handling
 
 ## Non-Functional Requirements Impact
 
-**NFR1 (Pass Rate ≥99%):** Must maintain after refactor
-**NFR7 (Processing Time <60s):** Tool-calling adds ~1-3s per tool, monitor closely
-**NFR11 (LLM Timeout 15s):** Each LLM call in tool loop has 15s timeout
-**NFR12 (Multi-Provider):** Only Anthropic supports tool-calling initially (Gemini future)
-**NFR5 (No Silent Failures):** Log all tool calls, inputs, outputs, errors
-**NFR25 (Context for Troubleshooting):** Tool call history aids debugging
+| NFR | Impact | Notes |
+|-----|--------|-------|
+| NFR1 (Pass Rate ≥99%) | Must maintain | Primary success metric |
+| NFR7 (Processing <60s) | +5-10s per function call | Monitor closely |
+| NFR11 (LLM Timeout 15s) | Per turn, not total | Each LLM call has 15s timeout |
+| NFR5 (No Silent Failures) | Log all function calls | Full audit trail |
+| NFR25 (Context for Debug) | Function history aids debugging | Improved observability |
 
 ## Risks and Mitigations
 
-### Risk 1: LLM Makes Incorrect Tool Calls
-**Likelihood:** Medium
-**Impact:** High (wrong warranty checks, missed tickets)
+### Risk 1: LLM Makes Incorrect Function Calls
+**Likelihood:** Medium | **Impact:** High
 **Mitigation:**
-- Use temperature=0 for deterministic tool selection
-- Provide clear tool descriptions and examples in scenario instructions
-- Eval tests validate correct tool usage
-- Add tool call validation in dispatcher
+- Clear function descriptions with usage guidance in scenario instructions
+- Eval tests validate correct function usage patterns
+- Add function call validation in dispatcher
 
 ### Risk 2: Performance Degradation
-**Likelihood:** Medium
-**Impact:** Medium (slower processing, higher costs)
+**Likelihood:** Low | **Impact:** Medium
 **Mitigation:**
-- Benchmark tool-calling overhead
 - Set max iterations limit (10) to prevent infinite loops
-- Cache tool results where applicable
-- Monitor LLM token usage
+- Monitor function execution time
+- Each function call adds ~2-5s (acceptable within 60s budget)
 
-### Risk 3: Complex Multi-Turn Debugging
-**Likelihood:** High
-**Impact:** Medium (harder to troubleshoot)
+### Risk 3: Multi-Turn Debugging Complexity
+**Likelihood:** Medium | **Impact:** Medium
 **Mitigation:**
-- Comprehensive logging of tool calls and LLM responses
-- Eval framework shows full tool call history
-- Add debug mode to log full conversation turns
-- Create troubleshooting runbook
+- Comprehensive logging of function calls and LLM responses
+- Eval framework shows full function call history
+- Add debug mode for verbose logging
 
 ### Risk 4: Breaking Existing Functionality
-**Likelihood:** Medium
-**Impact:** High (regression in working scenarios)
+**Likelihood:** Low | **Impact:** High
 **Mitigation:**
-- Maintain backwards compatibility flag
+- Backwards compatible - scenarios without functions use standard generation
 - All existing eval tests must pass
 - Gradual migration per scenario
-- Extensive integration testing
-
-### Risk 5: Gemini Doesn't Support Tool-Calling (Yet)
-**Likelihood:** Low (Gemini 2.0 supports function calling)
-**Impact:** Medium (limits multi-provider support)
-**Mitigation:**
-- Implement Anthropic first, abstract tool-calling interface
-- Add GeminiProvider tool-calling in follow-up story
-- Document provider-specific limitations
-- Fallback to non-tool mode for unsupported providers
 
 ## Success Metrics
 
-- [ ] All 4 scenarios converted to tool-calling architecture
+- [ ] All 4 scenarios support function-calling architecture
 - [ ] ≥99% eval pass rate maintained (NFR1)
 - [ ] P95 processing time <60s maintained (NFR7)
-- [ ] Tool-calling overhead <5% vs baseline
+- [ ] Function-calling overhead <15s total
 - [ ] Zero regressions in existing eval tests
-- [ ] 100% of tool calls logged with input/output
-- [ ] Documentation complete with migration guide
-- [ ] Team trained and comfortable with new architecture
+- [ ] 100% of function calls logged with input/output
 
 ## Follow-Up Stories
 
-**Story 4.6:** Gemini Provider Tool-Calling Support
-**Story 4.7:** Real MCP Server Implementation (Warranty API)
-**Story 4.8:** Advanced Tool-Calling (Parallel Tool Execution)
-**Story 4.9:** Tool-Calling Monitoring and Analytics
-**Story 5.1:** Production MCP Server Deployment
+**Story 4.6:** Anthropic Provider Function-Calling Support (optional, for multi-provider)
+**Story 4.7:** Advanced Function-Calling (parallel execution, conditional functions)
+**Story 5.1:** Production Client Implementation (real warranty API, ticketing)
 
 ## References
 
-- [Anthropic Tool Use Documentation](https://docs.anthropic.com/claude/docs/tool-use)
-- [MCP Protocol Specification](https://spec.modelcontextprotocol.io/)
-- [Story 4.1: Eval Framework with Mocked MCP Clients](./story-4.1-eval-framework-and-mocked-mcp-clients.md)
+- [Gemini Function Calling Documentation](https://ai.google.dev/gemini-api/docs/function-calling)
+- [Story 4.1: Eval Framework with Mocked Clients](./story-4.1-eval-framework-and-mocked-mcp-clients.md)
 - [Story 3.6: Email Processing Pipeline Integration](./story-3.6-email-processing-pipeline-integration.md)
 
-## Notes
+## Changelog
 
-- This is a significant architectural change that affects multiple components
-- Phased implementation recommended to reduce risk
-- Consider feature flag for gradual rollout
-- Tool-calling enables future extensibility (new tools, new scenarios)
-- Foundation for production MCP server integration (Epic 5)
+| Date | Change | Author |
+|------|--------|--------|
+| 2026-01-18 | Initial draft (Anthropic-focused) | - |
+| 2026-01-19 | Rewritten for Gemini function calling | SM Agent |
