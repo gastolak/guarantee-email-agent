@@ -208,7 +208,85 @@ curl -X POST "http://crmabacus.suntar.pl:43451/token" \
 
 ---
 
-## Additional Endpoints (Not Currently Used)
+## Task Information and Feature Checking
+
+### GET `/zadania/{zadanie_id}`
+
+**Purpose**: Get single task/ticket details by ID
+
+**Authentication**: Required (Bearer token)
+
+**Path Parameters**:
+- `zadanie_id` (integer, required): Task ID
+
+**Response** (200 OK) - Schema: `Zadanie`:
+```json
+{
+  "zadanie_id": 12345,
+  "klient_id": 789,
+  "dzial_id": 2,
+  "typ_zadania_id": 156,
+  "typ_wykonania_id": 184,
+  "organizacja_id": 1,
+  "temat": "RICOH MP 2555:C074AD3D3102 22480L9010542",
+  "opis": "Customer reports paper jam...",
+  "data_dodania": "2026-02-02T10:30:00",
+  // Additional fields...
+}
+```
+
+**Response** (404 Not Found):
+- Task with `zadanie_id` not found
+
+**Use Case**: Retrieve task details before checking if agent should respond
+
+---
+
+### GET `/zadania/{zadanie_id}/cechy/check`
+
+**Purpose**: Check if task has specific feature/attribute flag (e.g., "Disable AI Agent")
+
+**Authentication**: Required (Bearer token)
+
+**Path Parameters**:
+- `zadanie_id` (integer, required): Task ID to check
+
+**Query Parameters**:
+- `nazwa_cechy` (string, required): Exact feature name to check
+  - Example: `"Wyłącz agenta AI"` (Disable AI Agent)
+
+**Response** (200 OK) - Schema: `CechaCheckResponse`:
+```json
+{
+  "zadanie_id": 12345,
+  "cecha_nazwa": "Wyłącz agenta AI",
+  "posiada_ceche": true
+}
+```
+
+**Field Descriptions**:
+- `zadanie_id`: Task ID that was checked
+- `cecha_nazwa`: Feature name that was searched
+- `posiada_ceche`: Boolean - `true` if task has this feature, `false` otherwise
+
+**Response** (404 Not Found):
+- Task with `zadanie_id` not found
+
+**Critical Use Case**:
+Before responding to a task, check for `"Wyłącz agenta AI"` feature:
+- If `posiada_ceche: true` → **DO NOT** send automated AI response
+- If `posiada_ceche: false` → Proceed with normal agent response
+
+**SQL Query**:
+```sql
+SELECT ... FROM ab_zadania_cechy
+LEFT JOIN ab_s_cechy_zadan
+WHERE zadanie_id = {zadanie_id} AND cecha_nazwa = {nazwa_cechy}
+```
+
+---
+
+## Additional Endpoints (Future Use)
 
 ### GET `/klienci/znajdz_po_emailu/`
 
@@ -218,19 +296,6 @@ curl -X POST "http://crmabacus.suntar.pl:43451/token" \
 - `email` (string, required): Email address to search
 
 **Response**: `KlientKontakt` schema with `nadawca_kontakt_id` and `klient_id`
-
----
-
-### GET `/zadania/{zadanie_id}/cechy/check`
-
-**Purpose**: Check if task has specific feature/attribute
-
-**Query Parameters**:
-- `nazwa_cechy` (string, required): Exact feature name (e.g., "Wyłącz agenta AI")
-
-**Response**: `CechaCheckResponse` - boolean indicating if feature exists
-
-**Potential Use**: Could check for "Wyłącz agenta AI" flag to disable automated responses
 
 ---
 

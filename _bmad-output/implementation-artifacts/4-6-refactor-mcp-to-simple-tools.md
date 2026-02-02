@@ -49,6 +49,8 @@ tools:
     warranty_endpoint: "/klienci/znajdz_po_numerze_seryjnym/"
     ticketing_endpoint: "/zadania/dodaj_zadanie/"
     ticket_info_endpoint: "/zadania/{zadanie_id}/info/"
+    task_info_endpoint: "/zadania/{zadanie_id}"
+    task_feature_check_endpoint: "/zadania/{zadanie_id}/cechy/check"
     timeout_seconds: 10
     # Default IDs for ticket creation (per API spec)
     ticket_defaults:
@@ -57,6 +59,8 @@ tools:
       typ_wykonania_id: 184          # Awaiting Review
       organizacja_id: 1              # Suntar
       unrecognized_klient_id: 702    # Default when client not found
+    # Feature flag for disabling agent responses
+    agent_disable_feature_name: "Wyłącz agenta AI"
 ```
 **And** `src/guarantee_email_agent/config/schema.py` updated with `ToolConfig` classes
 **And** Config validation updated for new structure
@@ -209,6 +213,18 @@ tools:
       - `publiczne`: false
       - `operacja_id`: 0
     - No return value (fire and forget)
+  - [ ] Implement `async def get_task_info(zadanie_id: int) -> dict`
+    - GET `/zadania/{zadanie_id}` with Bearer auth
+    - Return full Zadanie response with fields: `zadanie_id`, `klient_id`, `temat`, `opis`, `data_dodania`, etc.
+    - Raise IntegrationError on 404 or network errors
+    - Use case: Retrieve task details before processing
+  - [ ] Implement `async def check_agent_disabled(zadanie_id: int) -> bool`
+    - GET `/zadania/{zadanie_id}/cechy/check?nazwa_cechy=Wyłącz agenta AI`
+    - Parse response field `posiada_ceche` (boolean)
+    - Return True if agent should be disabled for this task, False otherwise
+    - Handle 404 → return False (task not found, safe to proceed)
+    - **CRITICAL**: This check must be called before generating AI responses
+    - Log result: "Agent disabled for task {zadanie_id}: {result}"
   - [ ] Add `@retry` decorator to all public methods (3 attempts, exponential backoff 1-10s)
   - [ ] Add circuit breaker to all API methods
   - [ ] Add structured logging: log all requests/responses with `extra={"tool": "crm_abacus", "operation": name, ...}`
@@ -230,7 +246,11 @@ tools:
   - [ ] Remove `McpConnectionConfig` and related classes
   - [ ] Add `GmailToolConfig` with fields: `api_endpoint`, `timeout_seconds`
   - [ ] Add `TicketDefaults` dataclass with fields: `dzial_id`, `typ_zadania_id`, `typ_wykonania_id`, `organizacja_id`, `unrecognized_klient_id`
-  - [ ] Add `CrmAbacusToolConfig` with fields: `base_url`, `token_endpoint`, `warranty_endpoint`, `ticketing_endpoint`, `ticket_info_endpoint`, `timeout_seconds`, `ticket_defaults: TicketDefaults`
+  - [ ] Add `CrmAbacusToolConfig` with fields:
+    - `base_url`, `token_endpoint`, `warranty_endpoint`, `ticketing_endpoint`
+    - `ticket_info_endpoint`, `task_info_endpoint`, `task_feature_check_endpoint`
+    - `timeout_seconds`, `ticket_defaults: TicketDefaults`
+    - `agent_disable_feature_name` (default: "Wyłącz agenta AI")
   - [ ] Add `ToolsConfig` container class with `gmail: GmailToolConfig` and `crm_abacus: CrmAbacusToolConfig` fields
   - [ ] Update `AgentConfig` to have `tools: ToolsConfig` field
   - [ ] Update validation logic
@@ -658,6 +678,108 @@ class CrmAbacusTool:
                 )
                 raise IntegrationError(f"CRM Abacus ticketing error: {e}") from e
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10)
+    )
+    async def get_task_info(self, zadanie_id: int) -> dict:
+        """Get full task/ticket information by ID.
+
+        Args:
+            zadanie_id: Task ID
+
+        Returns:
+            Full Zadanie response dict
+
+        Raises:
+            IntegrationError: If API call fails after retries
+        """
+        async with self.circuit_breaker:
+            try:
+                token = await self._get_valid_token()
+
+                logger.info(
+                    "Fetching task info",
+                    extra={"tool": "crm_abacus", "operation": "get_task_info", "zadanie_id": zadanie_id}
+                )
+
+                response = await self.client.get(
+                    f"{self.base_url}/zadania/{zadanie_id}",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                logger.info(
+                    "Task info retrieved",
+                    extra={"tool": "crm_abacus", "operation": "get_task_info", "zadanie_id": zadanie_id}
+                )
+                return result
+
+            except httpx.HTTPError as e:
+                logger.error(
+                    f"Task info fetch failed: {e}",
+                    extra={"tool": "crm_abacus", "operation": "get_task_info", "error": str(e)}
+                )
+                raise IntegrationError(f"CRM Abacus task info error: {e}") from e
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10)
+    )
+    async def check_agent_disabled(self, zadanie_id: int) -> bool:
+        """Check if AI agent is disabled for this task via feature flag.
+
+        Args:
+            zadanie_id: Task ID to check
+
+        Returns:
+            True if agent should NOT respond (disabled), False if agent can respond
+
+        Raises:
+            IntegrationError: If API call fails after retries
+        """
+        async with self.circuit_breaker:
+            try:
+                token = await self._get_valid_token()
+
+                logger.info(
+                    "Checking agent disabled flag",
+                    extra={"tool": "crm_abacus", "operation": "check_agent_disabled", "zadanie_id": zadanie_id}
+                )
+
+                response = await self.client.get(
+                    f"{self.base_url}/zadania/{zadanie_id}/cechy/check",
+                    params={"nazwa_cechy": "Wyłącz agenta AI"},
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                agent_disabled = result.get("posiada_ceche", False)
+
+                logger.warning(
+                    f"Agent disabled for task {zadanie_id}: {agent_disabled}",
+                    extra={"tool": "crm_abacus", "operation": "check_agent_disabled", "disabled": agent_disabled}
+                )
+                return agent_disabled
+
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    logger.info(f"Task {zadanie_id} not found, agent can respond")
+                    return False  # Task not found, safe to proceed
+                logger.error(
+                    f"Agent disabled check failed: {e}",
+                    extra={"tool": "crm_abacus", "operation": "check_agent_disabled", "error": str(e)}
+                )
+                raise IntegrationError(f"CRM Abacus agent check error: {e}") from e
+            except httpx.HTTPError as e:
+                logger.error(
+                    f"Agent disabled check failed: {e}",
+                    extra={"tool": "crm_abacus", "operation": "check_agent_disabled", "error": str(e)}
+                )
+                raise IntegrationError(f"CRM Abacus agent check error: {e}") from e
+
     async def close(self):
         """Close HTTP client connection pool."""
         await self.client.aclose()
@@ -690,6 +812,8 @@ tools:
     warranty_endpoint: "/klienci/znajdz_po_numerze_seryjnym/"
     ticketing_endpoint: "/zadania/dodaj_zadanie/"
     ticket_info_endpoint: "/zadania/{zadanie_id}/info/"
+    task_info_endpoint: "/zadania/{zadanie_id}"
+    task_feature_check_endpoint: "/zadania/{zadanie_id}/cechy/check"
     timeout_seconds: 10
     ticket_defaults:
       dzial_id: 2
@@ -697,6 +821,7 @@ tools:
       typ_wykonania_id: 184
       organizacja_id: 1
       unrecognized_klient_id: 702
+    agent_disable_feature_name: "Wyłącz agenta AI"
 ```
 
 ### Test Migration Example
