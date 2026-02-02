@@ -190,7 +190,7 @@ class ScenarioDetector:
                     self.llm_provider.create_message,
                     system_prompt=system_message,
                     user_prompt=user_message,
-                    max_tokens=200,  # Increased from 50 to allow full JSON response
+                    max_tokens=500,  # Sufficient for JSON response with explanation
                     temperature=0  # Maximum determinism per NFR1
                 ),
                 timeout=self.config.llm.timeout_seconds
