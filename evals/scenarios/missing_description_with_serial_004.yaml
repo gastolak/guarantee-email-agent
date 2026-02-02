@@ -1,0 +1,28 @@
+scenario_id: missing_description_with_serial_004
+description: "Customer provides serial C074AD3D3104 but no issue description"
+category: missing-info
+created: "2026-02-02"
+
+input:
+  email:
+    subject: "Hej"
+    body: "Naprawcie please mi sprzęt o numerze seryjnym: C074AD3D3104"
+    from: "test2@email.com"
+    received: "2025-10-15T17:00:00Z"
+
+  mock_function_responses:
+    send_email:
+      message_id: "msg-abc131"
+      status: "sent"
+
+expected_output:
+  scenario_instruction_used: "missing-info"
+  processing_time_ms: 60000
+
+  expected_function_calls:
+    - function_name: send_email
+      arguments_contain:
+        to: "test2@email.com"
+      body_contains:
+        - "szczegółowy opis usterki"
+        - "co dokładnie dzieje się z urządzeniem"

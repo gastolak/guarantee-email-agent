@@ -1,0 +1,48 @@
+scenario_id: valid_warranty_short_003
+description: "Short request with serial C074AD3D3102 and detailed issue - red lights blinking"
+category: valid-warranty
+created: "2026-02-02"
+
+input:
+  email:
+    subject: "Hej"
+    body: "Naprawcie mi sprzęt wreszcie! nr seryjny: C074AD3D3102. świeci na czerwono i mruga oczami."
+    from: "test2@email.com"
+    received: "2025-10-15T14:00:00Z"
+
+  mock_function_responses:
+    check_warranty:
+      status: "valid"
+      warranty_type: "service_contract"
+      expires: "2027-01-15"
+      device_name: "RICOH MP 2555"
+      serial: "C074AD3D3102"
+      klient_id: 789
+    create_ticket:
+      nowe_zadanie_id: 12347
+    send_email:
+      message_id: "msg-abc125"
+      status: "sent"
+
+expected_output:
+  scenario_instruction_used: "valid-warranty"
+  processing_time_ms: 60000
+
+  expected_function_calls:
+    - function_name: check_warranty
+      arguments:
+        serial_number: "C074AD3D3102"
+      result_contains:
+        status: "valid"
+
+    - function_name: create_ticket
+      arguments_contain:
+        description: "świeci na czerwono i mruga"
+
+    - function_name: send_email
+      arguments_contain:
+        to: "test2@email.com"
+      body_contains:
+        - "C074AD3D3102"
+        - "Aktywna"
+        - "zgłoszenie serwisowe"
