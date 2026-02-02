@@ -57,6 +57,14 @@ class EvalRunner:
         """
         logger.info(f"Executing eval: {test_case.scenario_id}")
 
+        # Print scenario details for debugging
+        print(f"\n{'='*80}")
+        print(f"Running: {test_case.scenario_id}")
+        print(f"Description: {test_case.description}")
+        print(f"Email subject: {test_case.input.email.subject}")
+        print(f"Expected scenario: {test_case.expected_output.scenario_instruction_used}")
+        print(f"{'='*80}")
+
         start_time = time.time()
 
         try:
@@ -89,6 +97,17 @@ class EvalRunner:
                 processing_time_ms,
                 actual_function_calls,
             )
+
+            # Print result immediately
+            elapsed_s = processing_time_ms / 1000
+            if passed:
+                print(f"✓ PASSED in {elapsed_s:.2f}s - Scenario: {actual_output.get('scenario_used', 'unknown')}")
+            else:
+                print(f"✗ FAILED in {elapsed_s:.2f}s - Scenario: {actual_output.get('scenario_used', 'unknown')}")
+                print(f"  Failures:")
+                for failure in failures:
+                    print(f"    - {failure}")
+            print()
 
             return EvalResult(
                 test_case=test_case,

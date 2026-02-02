@@ -7,6 +7,7 @@ from guarantee_email_agent.instructions.loader import (
     InstructionFile,
     load_instruction,
     load_instruction_cached,
+    load_step_instruction,
     clear_instruction_cache,
     validate_instruction,
 )
@@ -497,3 +498,32 @@ available_functions:
     assert len(functions) == 1
     priority_param = functions[0].parameters["properties"]["priority"]
     assert priority_param["enum"] == ["low", "normal", "high", "urgent"]
+
+
+def test_load_step_instruction():
+    """Test loading step instruction from instructions/steps/ directory."""
+    from pathlib import Path
+
+    # Load step 01 (extract-serial)
+    instruction = load_step_instruction("01-extract-serial")
+
+    assert instruction.name == "step-01-extract-serial"
+    assert instruction.description == "Step 1 - Extract serial number from customer email"
+    assert instruction.version == "1.0.0"
+    assert "NEXT_STEP" in instruction.body
+    assert "Serial Number" in instruction.body
+
+
+def test_load_step_instruction_with_cache():
+    """Test step instruction caching works."""
+    clear_instruction_cache()
+
+    # First load
+    instruction1 = load_step_instruction("01-extract-serial")
+
+    # Second load (should use cache)
+    instruction2 = load_step_instruction("01-extract-serial")
+
+    # Should be same object from cache
+    assert instruction1.file_path == instruction2.file_path
+    assert instruction1.name == instruction2.name

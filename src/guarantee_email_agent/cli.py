@@ -204,7 +204,8 @@ async def run_eval(
     eval_dir: Path,
     verbose: bool = False,
     failures_only: bool = False,
-    detailed: bool = False
+    detailed: bool = False,
+    scenario: str = None
 ) -> int:
     """
     Run the evaluation suite.
@@ -244,7 +245,15 @@ async def run_eval(
             typer.echo("\nSee evals/scenarios/README.md for template and examples")
             return EXIT_EVAL_FAILURE
 
-        typer.echo(f"\n🔍 Running evaluation suite... ({len(test_cases)} scenarios)\n")
+        # Filter to specific scenario if requested
+        if scenario:
+            test_cases = [tc for tc in test_cases if scenario in tc.scenario_id or scenario in tc.input.email.subject]
+            if not test_cases:
+                typer.echo(f"❌ No test case found matching '{scenario}'")
+                return EXIT_EVAL_FAILURE
+            typer.echo(f"\n🔍 Running single scenario: {test_cases[0].scenario_id}\n")
+        else:
+            typer.echo(f"\n🔍 Running evaluation suite... ({len(test_cases)} scenarios)\n")
 
         # Run eval suite
         start_time = time.time()
@@ -310,6 +319,12 @@ def eval(
         "--detailed",
         "-d",
         help="Show detailed failure analysis with categorization and fix suggestions"
+    ),
+    scenario: str = typer.Option(
+        None,
+        "--scenario",
+        "-s",
+        help="Run only a specific scenario file (e.g., 'valid_warranty_001.yaml')"
     )
 ):
     """
@@ -342,7 +357,7 @@ def eval(
         # Check exit code in scripts
         uv run python -m guarantee_email_agent eval || echo "Failed with $?"
     """
-    exit_code = asyncio.run(run_eval(eval_dir, verbose, failures_only, detailed))
+    exit_code = asyncio.run(run_eval(eval_dir, verbose, failures_only, detailed, scenario))
     sys.exit(exit_code)
 
 

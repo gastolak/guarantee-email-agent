@@ -227,12 +227,12 @@ expected_output:
   - `device-not-found` → `[01, 02, 03b]`
   - `missing-info` → `[01, 03d]`
   - `out-of-scope` → `[01, 04]`
-- All 12 evals must pass with ≥99% pass rate
+- All 12 evals must pass with 100% pass rate (12/12 passing)
 
 **Implementation Requirements:**
 - Update each YAML file in `evals/scenarios/` with `expected_steps`
 - Run full eval suite: `uv run python -m guarantee_email_agent eval`
-- Verify 100% pass rate (12/12 passing)
+- Achieve 100% pass rate (12/12 passing) - Zero tolerance for regression
 - Document step mapping in eval comments
 
 ### AC7: Backward Compatibility Mode
@@ -244,6 +244,7 @@ expected_output:
 - Allow fallback to `use_step_orchestrator: false` (legacy monolithic mode)
 - Gracefully handle both modes in CLI and eval runner
 - Remove legacy mode after 2 weeks if no issues found
+- **Rollback trigger**: If >5% of production emails fail, immediately revert to `use_step_orchestrator: false`
 
 **Implementation Requirements:**
 - Add config field in `config.yaml`: `orchestration.use_step_orchestrator: true`
@@ -303,6 +304,8 @@ expected_output:
 ### Files to Keep (No Changes)
 
 1. **`instructions/steps/*.md`** - Step instruction files (already exist, ready to use)
+   - Naming convention: `{step-number}-{description}.md` (e.g., `01-extract-serial.md`, `03a-valid-warranty.md`)
+   - 8 step files total: 01, 02, 03a, 03b, 03c, 03d, 04, 05
 2. **`instructions/WORKFLOW.md`** - Step-by-step workflow documentation (reference for implementation)
 3. **`src/guarantee_email_agent/email/serial_extractor.py`** - Serial extraction logic (reused in Step 01)
 4. **`src/guarantee_email_agent/llm/function_dispatcher.py`** - Function calling (reused per step)
@@ -390,6 +393,7 @@ StepOrchestrator.orchestrate(email)
 - [ ] Update `EmailProcessor` to support dual mode (step vs legacy)
 - [ ] Add step transition logging
 - [ ] Test end-to-end step execution with sample email
+- [ ] Verify step transitions logged correctly with all required fields (from_step, to_step, reason)
 
 ### Phase 4: Refactor Eval Framework (Day 4)
 - [ ] Update `EvalTestCase` model with `expected_steps` field
@@ -407,21 +411,21 @@ StepOrchestrator.orchestrate(email)
 ### Phase 6: Cleanup and Documentation (Day 5)
 - [ ] Update README with step-based architecture explanation
 - [ ] Add developer documentation: "How Step Routing Works"
-- [ ] Remove `use_step_orchestrator: false` fallback (after verification)
+- [ ] Remove `use_step_orchestrator: false` fallback (only after 2 weeks in prod with <5% failure rate)
 - [ ] Archive legacy scenario instruction files (keep for reference)
 
 ## Definition of Done
 
-- [ ] All 8 acceptance criteria implemented and tested
+- [ ] All 8 acceptance criteria implemented and tested (see AC1-AC8 above)
 - [ ] `StepOrchestrator` successfully executes step-by-step flows
-- [ ] All 12 existing evals updated with `expected_steps` and passing (100% pass rate)
-- [ ] Step transitions logged with context at INFO level
-- [ ] Backward compatibility mode works (can toggle via config)
+- [ ] All 12 existing evals updated with `expected_steps` and passing (100% pass rate = 12/12)
+- [ ] Step transitions logged with context at INFO level (per AC8)
+- [ ] Backward compatibility mode works (can toggle via config per AC7)
 - [ ] Unit test coverage ≥80% for new orchestrator code
 - [ ] Integration tests validate complete step flows
 - [ ] Code reviewed and approved
-- [ ] Documentation updated (README + developer guide)
-- [ ] No regressions in existing functionality
+- [ ] Migration Plan Phase 6 completed (documentation + cleanup)
+- [ ] No regressions in existing functionality (verified via full eval suite)
 
 ## Edge Cases & Error Handling
 

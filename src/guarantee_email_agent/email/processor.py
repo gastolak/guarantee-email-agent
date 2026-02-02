@@ -20,7 +20,7 @@ Function-calling mode (Story 4.5):
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from guarantee_email_agent.config.schema import AgentConfig
 from guarantee_email_agent.email.models import EmailMessage, SerialExtractionResult
@@ -31,10 +31,14 @@ from guarantee_email_agent.email.processor_models import (
 )
 from guarantee_email_agent.email.scenario_detector import ScenarioDetector
 from guarantee_email_agent.email.serial_extractor import SerialNumberExtractor
+from guarantee_email_agent.instructions.loader import load_instruction
 from guarantee_email_agent.tools import GmailTool, CrmAbacusTool
 from guarantee_email_agent.llm.response_generator import ResponseGenerator
 from guarantee_email_agent.llm.function_dispatcher import FunctionDispatcher
 from guarantee_email_agent.utils.errors import AgentError, ProcessingError
+
+if TYPE_CHECKING:
+    from guarantee_email_agent.orchestrator.step_orchestrator import StepOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +88,21 @@ class EmailProcessor:
             crm_abacus_tool=crm_abacus_tool
         )
 
-        logger.info("Email processor initialized with tools")
+        # Create step orchestrator for step-by-step workflow (Story 5.1)
+        # Import here to avoid circular dependency
+        from guarantee_email_agent.orchestrator.step_orchestrator import StepOrchestrator
+
+        main_instruction = load_instruction("instructions/main.md")
+        self.step_orchestrator = StepOrchestrator(
+            config=config,
+            main_instruction_body=main_instruction.body,
+            response_generator=response_generator
+        )
+
+        logger.info(
+            "Email processor initialized",
+            extra={"use_step_orchestrator": config.agent.use_step_orchestrator}
+        )
 
     async def process_email(self, raw_email: Dict[str, Any]) -> ProcessingResult:
         """Process email end-to-end through complete pipeline.
@@ -505,6 +523,10 @@ class EmailProcessor:
         Raises:
             ProcessingError: If send_email was not called
         """
+        # Story 5.1: Check if step orchestrator mode is enabled
+        if self.config.agent.use_step_orchestrator:
+            return await self.process_email_with_steps(raw_email)
+
         # If function calling disabled, fall back to legacy processing
         if not use_function_calling:
             return await self.process_email(raw_email)
@@ -734,6 +756,145 @@ class EmailProcessor:
                 success=False,
                 email_id=email_id,
                 scenario_used=scenario_used,
+                serial_number=serial_number,
+                warranty_status=warranty_status,
+                response_sent=response_sent,
+                ticket_created=ticket_created,
+                ticket_id=ticket_id,
+                processing_time_ms=processing_time_ms,
+                error_message=str(e),
+                failed_step=failed_step or "unknown",
+            )
+
+    async def process_email_with_steps(
+        self,
+        raw_email: Dict[str, Any]
+    ) -> ProcessingResult:
+        """Process email using step-by-step state machine workflow.
+
+        Story 5.1: New step-based processing flow using StepOrchestrator.
+        Executes steps in sequence until DONE state.
+
+        Args:
+            raw_email: Raw email message dict from Gmail
+
+        Returns:
+            ProcessingResult with step execution details
+
+        Raises:
+            ProcessingError: If step execution fails
+            AgentError: If orchestration fails
+        """
+        start_time = time.time()
+        email_id = raw_email.id
+
+        # Initialize tracking variables
+        serial_number = None
+        warranty_status = None
+        response_sent = False
+        ticket_created = False
+        ticket_id = None
+        failed_step = None
+
+        try:
+            # Step 1: Parse email
+            logger.info(f"Step 1/2: Parsing email: {email_id}")
+            email = self.email_parser.parse_email(raw_email)
+
+            logger.info(
+                f"Email parsed: {email.subject}",
+                extra={
+                    "email_id": email_id,
+                    "from": email.from_address,
+                    "subject": email.subject,
+                    "body_length": len(email.body)
+                }
+            )
+
+            # Step 2: Execute step-by-step workflow
+            logger.info(f"Step 2/2: Executing step workflow: {email_id}")
+            try:
+                orchestration_result = await self.step_orchestrator.orchestrate(
+                    email=email,
+                    initial_step="01-extract-serial"
+                )
+
+                # Extract results from final context
+                context = orchestration_result.context
+                serial_number = context.serial_number
+                warranty_status = context.warranty_data.get("status") if context.warranty_data else None
+                ticket_id = context.ticket_id
+
+                # Determine if ticket was created and email was sent from step history
+                for step in orchestration_result.step_history:
+                    if "ticket_id" in step.metadata:
+                        ticket_created = True
+                        ticket_id = step.metadata["ticket_id"]
+                    if "email_sent" in step.metadata and step.metadata["email_sent"]:
+                        response_sent = True
+
+                # Calculate processing time
+                processing_time_ms = int((time.time() - start_time) * 1000)
+
+                if processing_time_ms > 60000:
+                    logger.warning(
+                        f"Processing time exceeded 60s target: {processing_time_ms}ms",
+                        extra={"email_id": email_id, "processing_time_ms": processing_time_ms}
+                    )
+
+                logger.info(
+                    f"Step workflow complete: {orchestration_result.total_steps} steps, {processing_time_ms}ms",
+                    extra={
+                        "email_id": email_id,
+                        "status": "completed",
+                        "processing_time_ms": processing_time_ms,
+                        "total_steps": orchestration_result.total_steps,
+                        "step_sequence": [s.step_name for s in orchestration_result.step_history],
+                        "response_sent": response_sent,
+                        "ticket_created": ticket_created
+                    }
+                )
+
+                return ProcessingResult(
+                    success=True,
+                    email_id=email_id,
+                    scenario_used=f"steps:{orchestration_result.final_step}",
+                    serial_number=serial_number,
+                    warranty_status=warranty_status,
+                    response_sent=response_sent,
+                    ticket_created=ticket_created,
+                    ticket_id=ticket_id,
+                    processing_time_ms=processing_time_ms,
+                    error_message=None,
+                    failed_step=None,
+                )
+
+            except ProcessingError:
+                raise
+            except Exception as e:
+                failed_step = "step_orchestration"
+                error_message = f"Step orchestration failed: {str(e)}"
+                logger.error(error_message, extra={"email_id": email_id}, exc_info=True)
+                raise
+
+        except Exception as e:
+            processing_time_ms = int((time.time() - start_time) * 1000)
+
+            logger.error(
+                f"Email processing failed: {str(e)}",
+                extra={
+                    "email_id": email_id,
+                    "status": "failed",
+                    "failed_step": failed_step,
+                    "processing_time_ms": processing_time_ms,
+                },
+                exc_info=True,
+            )
+
+            return ProcessingResult(
+                success=False,
+                email_id=email_id,
+                scenario_used="steps:error",
                 serial_number=serial_number,
                 warranty_status=warranty_status,
                 response_sent=response_sent,

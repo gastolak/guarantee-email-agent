@@ -104,9 +104,9 @@ class ScenarioDetector:
         if re.search(r'\bwarranty\b', email_text, re.IGNORECASE):
             # Check if serial found
             if serial_result.is_successful():
-                logger.info("Heuristic: Warranty keyword + serial found → warranty inquiry")
+                logger.info("Heuristic: Warranty keyword + serial found → valid-warranty")
                 return ScenarioDetectionResult(
-                    scenario_name="valid-warranty",  # Will be refined after API call
+                    scenario_name="valid-warranty",  # Use legacy monolithic scenario for eval compatibility
                     confidence=0.85,
                     is_warranty_inquiry=True,
                     detected_intent="warranty_check",
@@ -116,7 +116,7 @@ class ScenarioDetector:
             else:
                 logger.info("Heuristic: Warranty keyword but no serial → missing-info")
                 return ScenarioDetectionResult(
-                    scenario_name="missing-info",
+                    scenario_name="missing-info",  # Use legacy scenario
                     confidence=0.9,
                     is_warranty_inquiry=True,
                     detected_intent="missing_information",
@@ -128,7 +128,7 @@ class ScenarioDetector:
         # Covers: no warranty keyword, no serial, >20 chars, not spam
         logger.info("Heuristic: Ambiguous case → low confidence (will use LLM)")
         return ScenarioDetectionResult(
-            scenario_name="valid-warranty",  # Tentative
+            scenario_name="valid-warranty",  # Tentative - use legacy scenario
             confidence=0.5,  # Low confidence triggers LLM
             is_warranty_inquiry=True,
             detected_intent="unknown",
@@ -136,11 +136,11 @@ class ScenarioDetector:
             ambiguous=True
         )
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        retry=retry_if_exception_type(TransientError)
-    )
+    # @retry(
+    #     stop=stop_after_attempt(3),
+    #     wait=wait_exponential(multiplier=1, min=1, max=10),
+    #     retry=retry_if_exception_type(TransientError)
+    # )
     async def detect_with_llm(
         self,
         email: EmailMessage,
@@ -199,9 +199,9 @@ class ScenarioDetector:
             # Extract classification
             classification = response_text.strip().lower()
 
-            logger.debug(f"LLM classification: {classification}")
+            print(f"[SCENARIO DETECTOR] LLM Response: '{classification}'")
 
-            # Map LLM response to scenario
+            # Map LLM response to legacy scenario names (for eval compatibility)
             if "valid_warranty" in classification:
                 scenario_name = "valid-warranty"
                 is_warranty = True
@@ -220,6 +220,9 @@ class ScenarioDetector:
                 scenario_name = "graceful-degradation"
                 is_warranty = False
                 intent = "unknown"
+
+            # Show which step was selected
+            print(f"[SCENARIO DETECTOR] ✓ Selected Step: {scenario_name}")
 
             logger.info(f"LLM detection: {scenario_name} (intent={intent})")
 

@@ -272,6 +272,39 @@ def clear_instruction_cache() -> None:
     logger.debug("Instruction cache cleared")
 
 
+def load_step_instruction(step_name: str) -> InstructionFile:
+    """Load step instruction from instructions/steps/ directory.
+
+    Args:
+        step_name: Step name without path (e.g., "01-extract-serial")
+
+    Returns:
+        Parsed InstructionFile for the step
+
+    Raises:
+        InstructionParseError: If step file not found or malformed
+    """
+    # Construct path to step file
+    # Assumes step files are in {project_root}/instructions/steps/
+    from pathlib import Path
+    import os
+
+    # Get project root (assuming we're in src/guarantee_email_agent/...)
+    current_file = Path(__file__)  # loader.py
+    project_root = current_file.parent.parent.parent.parent  # Go up to project root
+
+    # Construct step file path
+    step_file_path = project_root / "instructions" / "steps" / f"{step_name}.md"
+
+    logger.debug(
+        f"Loading step instruction: {step_name}",
+        extra={"step_name": step_name, "file_path": str(step_file_path)}
+    )
+
+    # Use cached loader for performance
+    return load_instruction_cached(str(step_file_path))
+
+
 def validate_instruction(instruction: InstructionFile) -> None:
     """Validate instruction structure and content.
 

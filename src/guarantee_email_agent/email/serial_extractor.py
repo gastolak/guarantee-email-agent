@@ -122,11 +122,11 @@ class SerialNumberExtractor:
             ambiguous=True
         )
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        retry=retry_if_exception_type(TransientError)
-    )
+    # @retry(
+    #     stop=stop_after_attempt(3),
+    #     wait=wait_exponential(multiplier=1, min=1, max=10),
+    #     retry=retry_if_exception_type(TransientError)
+    # )
     async def extract_with_llm(self, email_body: str) -> SerialExtractionResult:
         """Extract serial number using LLM (fallback method).
 
@@ -142,15 +142,25 @@ class SerialNumberExtractor:
         Raises:
             LLMError: On LLM call failure after retries
         """
+        import time
+        start_time = time.time()
         logger.info("LLM extraction: attempting serial number extraction")
+        print(f"[SERIAL EXTRACTOR] Starting LLM call at {start_time:.2f}")
 
         try:
-            # Build system message with main instruction + extraction guidance
+            # Build system message with extraction guidance (don't use main_instruction to avoid JSON confusion)
             system_message = (
-                f"{self.main_instruction_body}\n\n"
+                f"You are a serial number extractor for warranty RMA emails.\n\n"
                 f"Extract the product serial number from the customer email. "
                 f"Serial numbers are typically alphanumeric codes 5-15 characters long. "
-                f"Return ONLY the serial number text, or the word 'NONE' if no serial number found."
+                f"Return ONLY the serial number text itself - do NOT return JSON, do NOT return explanations. "
+                f"Just return the serial number like 'SN12345' or the word 'NONE' if no serial number found.\n\n"
+                f"Examples:\n"
+                f"- Good: SN12345\n"
+                f"- Good: ABC-789\n"
+                f"- Good: NONE\n"
+                f"- Bad: {{\"serial_number\": \"SN12345\"}}\n"
+                f"- Bad: The serial number is SN12345"
             )
 
             # Build user message
@@ -170,7 +180,9 @@ class SerialNumberExtractor:
 
             response_text = response_text.strip()
 
-            logger.debug(f"LLM extraction response: {response_text}")
+            elapsed = time.time() - start_time
+            print(f"[SERIAL EXTRACTOR] LLM Response in {elapsed:.2f}s: '{response_text}'")
+            logger.info(f"LLM extraction response: {response_text}")
 
             # Parse response
             if response_text.upper() == 'NONE' or not response_text:

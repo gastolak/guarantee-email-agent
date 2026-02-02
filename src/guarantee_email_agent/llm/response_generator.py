@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from tenacity import (
@@ -12,9 +13,10 @@ from tenacity import (
 )
 
 from guarantee_email_agent.config.schema import AgentConfig
-from guarantee_email_agent.instructions.loader import InstructionFile
+from guarantee_email_agent.instructions.loader import InstructionFile, load_step_instruction
 from guarantee_email_agent.instructions.router import ScenarioRouter
 from guarantee_email_agent.llm.provider import create_llm_provider, LLMProvider, GeminiProvider
+from guarantee_email_agent.orchestrator.models import StepContext, StepExecutionResult
 from guarantee_email_agent.utils.errors import (
     LLMError,
     LLMTimeoutError,
@@ -389,6 +391,12 @@ class ResponseGenerator:
             # Load scenario instruction
             scenario_instruction = self.router.select_scenario(scenario_name)
 
+            # Print which step is being executed (for debugging workflow)
+            print(f"\n{'='*60}")
+            print(f"📋 EXECUTING STEP: {scenario_name}")
+            print(f"   Instruction file: {scenario_instruction.name}")
+            print(f"{'='*60}\n")
+
             # Check if scenario has functions defined
             if not scenario_instruction.has_functions():
                 raise LLMError(
@@ -469,4 +477,202 @@ class ResponseGenerator:
                     message=f"LLM function calling failed: {str(e)}",
                     code="llm_function_calling_failed",
                     details={"scenario": scenario_name, "error": str(e)}
+                )
+
+    def _parse_step_response(
+        self,
+        response_text: str,
+        step_name: str
+    ) -> StepExecutionResult:
+        """Parse LLM response for step execution result.
+
+        Extracts structured data from LLM response:
+        - NEXT_STEP: <step-name> or DONE
+        - SERIAL: <serial-number>
+        - REASON: <routing-reason>
+        - Other metadata fields
+
+        Args:
+            response_text: Raw LLM response
+            step_name: Current step name
+
+        Returns:
+            StepExecutionResult with parsed routing decision and metadata
+        """
+        metadata: Dict[str, Any] = {}
+
+        # Extract NEXT_STEP (required)
+        next_step_match = re.search(r'NEXT_STEP:\s*(\S+)', response_text, re.IGNORECASE)
+        if next_step_match:
+            next_step = next_step_match.group(1).strip()
+        else:
+            # Default to DONE if not specified (graceful fallback)
+            logger.warning(
+                f"No NEXT_STEP found in response for {step_name}, defaulting to DONE",
+                extra={"step_name": step_name, "response_preview": response_text[:200]}
+            )
+            next_step = "DONE"
+
+        # Extract SERIAL (optional)
+        serial_match = re.search(r'SERIAL:\s*(\S+)', response_text, re.IGNORECASE)
+        if serial_match:
+            metadata["serial"] = serial_match.group(1).strip()
+
+        # Extract REASON (optional)
+        reason_match = re.search(r'REASON:\s*(.+?)(?:\n|$)', response_text, re.IGNORECASE)
+        if reason_match:
+            metadata["reason"] = reason_match.group(1).strip()
+
+        logger.debug(
+            f"Parsed step response: next_step={next_step}, metadata={metadata}",
+            extra={"step_name": step_name, "next_step": next_step, "metadata": metadata}
+        )
+
+        return StepExecutionResult(
+            next_step=next_step,
+            response_text=response_text,
+            metadata=metadata,
+            step_name=step_name
+        )
+
+    def _build_step_user_message(self, context: StepContext) -> str:
+        """Build user message for step execution.
+
+        Args:
+            context: Current workflow context
+
+        Returns:
+            Formatted user message for LLM
+        """
+        message_parts = [
+            "Customer Email:",
+            f"Subject: {context.email_subject}",
+            f"From: {context.from_address}",
+            f"Body: {context.email_body}",
+            ""
+        ]
+
+        if context.serial_number:
+            message_parts.append(f"Serial Number: {context.serial_number}")
+
+        if context.warranty_data:
+            message_parts.append(f"Warranty Data: {context.warranty_data}")
+
+        if context.ticket_id:
+            message_parts.append(f"Ticket ID: {context.ticket_id}")
+
+        return "\n".join(message_parts)
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type(TransientError)
+    )
+    async def generate_step_response(
+        self,
+        step_name: str,
+        context: StepContext
+    ) -> StepExecutionResult:
+        """Generate response for a single step in the workflow.
+
+        Loads step instruction, calls LLM, parses NEXT_STEP routing decision.
+
+        Args:
+            step_name: Name of step to execute (e.g., "01-extract-serial")
+            context: Current workflow context
+
+        Returns:
+            StepExecutionResult with routing decision and metadata
+
+        Raises:
+            LLMTimeoutError: On LLM timeout (transient, will retry)
+            LLMError: On LLM call failure after retries
+        """
+        logger.info(
+            f"Generating step response: step={step_name}",
+            extra={
+                "step_name": step_name,
+                "has_serial": context.serial_number is not None,
+                "has_warranty_data": context.warranty_data is not None
+            }
+        )
+
+        try:
+            # Load step instruction
+            step_instruction = load_step_instruction(step_name)
+
+            # Build system message from main instruction + step instruction
+            system_message = (
+                f"{self.main_instruction.body}\n\n"
+                f"## Current Step: {step_instruction.name}\n"
+                f"{step_instruction.body}"
+            )
+
+            # Build user message from context
+            user_message = self._build_step_user_message(context)
+
+            # Call LLM provider with timeout
+            response_text = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.llm_provider.create_message,
+                    system_prompt=system_message,
+                    user_prompt=user_message,
+                    max_tokens=DEFAULT_MAX_TOKENS,
+                    temperature=DEFAULT_TEMPERATURE
+                ),
+                timeout=self.config.llm.timeout_seconds
+            )
+
+            # Validate response
+            if not response_text or not response_text.strip():
+                raise LLMError(
+                    message="LLM returned empty response",
+                    code="llm_empty_response",
+                    details={"step_name": step_name}
+                )
+
+            # Parse response for NEXT_STEP and metadata
+            result = self._parse_step_response(response_text, step_name)
+
+            logger.info(
+                f"Step response generated: {step_name} → {result.next_step}",
+                extra={
+                    "step_name": step_name,
+                    "next_step": result.next_step,
+                    "response_length": len(response_text)
+                }
+            )
+
+            return result
+
+        except asyncio.TimeoutError:
+            raise LLMTimeoutError(
+                message=f"LLM step response timeout ({self.config.llm.timeout_seconds}s)",
+                code="llm_step_response_timeout",
+                details={"step_name": step_name, "timeout": self.config.llm.timeout_seconds}
+            )
+        except LLMError:
+            raise
+        except Exception as e:
+            error_msg = str(e).lower()
+
+            if "rate limit" in error_msg or "429" in error_msg:
+                from guarantee_email_agent.utils.errors import LLMRateLimitError
+                raise LLMRateLimitError(
+                    message=f"LLM rate limit: {str(e)}",
+                    code="llm_rate_limit",
+                    details={"step_name": step_name, "error": str(e)}
+                )
+            elif "connection" in error_msg or "network" in error_msg:
+                from guarantee_email_agent.utils.errors import LLMConnectionError
+                raise LLMConnectionError(
+                    message=f"LLM connection error: {str(e)}",
+                    code="llm_connection_error",
+                    details={"step_name": step_name, "error": str(e)}
+                )
+            else:
+                raise LLMError(
+                    message=f"LLM step response generation failed: {str(e)}",
+                    code="llm_step_response_failed",
+                    details={"step_name": step_name, "error": str(e)}
                 )

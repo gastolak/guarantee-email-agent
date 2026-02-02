@@ -6,10 +6,10 @@
 # Choose between Anthropic Claude or Google Gemini
 llm:
   provider: "gemini"  # "anthropic" or "gemini"
-  model: "gemini-3-pro-preview"  # Model name: "claude-3-5-sonnet-20241022" or "gemini-2.5-flash-preview-05-20"
+  model: "gemini-3-flash-preview"  # Model name: "claude-3-5-sonnet-20241022" or "gemini-2.5-flash-preview-05-20"
   temperature: 0  # Determinism for eval reproducibility
   max_tokens: 8192  # Gemini 2.0 Flash maximum output tokens (hard limit)
-  timeout_seconds: 15
+  timeout_seconds: 60
 
 # Evaluation Suite Configuration
 # Test suite path and pass rate threshold
@@ -22,10 +22,21 @@ eval:
 instructions:
   main: "./instructions/main.md"
   scenarios:
+    # Legacy scenarios (kept for backwards compatibility)
+    - "./instructions/scenarios/serial-number-found.md"
     - "./instructions/scenarios/valid-warranty.md"
     - "./instructions/scenarios/invalid-warranty.md"
     - "./instructions/scenarios/missing-info.md"
     - "./instructions/scenarios/graceful-degradation.md"
+    # New step-based workflow scenarios
+    - "./instructions/scenarios/step-01-extract-serial.md"
+    - "./instructions/scenarios/step-02-check-warranty.md"
+    - "./instructions/scenarios/step-03a-valid-warranty.md"
+    - "./instructions/scenarios/step-03b-device-not-found.md"
+    - "./instructions/scenarios/step-03c-expired-warranty.md"
+    - "./instructions/scenarios/step-03d-request-serial.md"
+    - "./instructions/scenarios/step-04-out-of-scope.md"
+    - "./instructions/scenarios/step-05-send-confirmation.md"
 
 # Logging Configuration
 # NFR14: Customer email body logged ONLY at DEBUG level

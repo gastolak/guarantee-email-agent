@@ -104,6 +104,7 @@ class AgentRuntimeConfig:
     polling_interval_seconds: int = 60
     shutdown_timeout_seconds: int = 30
     max_consecutive_errors: int = 10
+    use_step_orchestrator: bool = True  # Use step-by-step state machine (vs monolithic scenarios)
 
 
 @dataclass(frozen=True)
