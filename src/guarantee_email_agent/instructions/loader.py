@@ -276,7 +276,7 @@ def load_step_instruction(step_name: str) -> InstructionFile:
     """Load step instruction from instructions/steps/ directory.
 
     Args:
-        step_name: Step name without path (e.g., "01-extract-serial")
+        step_name: Step name without path (e.g., "extract-serial")
 
     Returns:
         Parsed InstructionFile for the step

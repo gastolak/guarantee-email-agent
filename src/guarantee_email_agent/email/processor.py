@@ -820,7 +820,7 @@ class EmailProcessor:
             try:
                 orchestration_result = await self.step_orchestrator.orchestrate(
                     email=email,
-                    initial_step="01-extract-serial"
+                    initial_step="extract-serial"
                 )
 
                 # Extract results from final context
@@ -872,6 +872,7 @@ class EmailProcessor:
                     error_message=None,
                     failed_step=None,
                     step_sequence=[s.step_name for s in orchestration_result.step_history],
+                    function_calls=orchestration_result.context.function_calls,
                 )
 
             except ProcessingError:

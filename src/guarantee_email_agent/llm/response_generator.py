@@ -62,7 +62,50 @@ class ResponseGenerator:
         # Initialize scenario router
         self.router = ScenarioRouter(config)
 
+        # Function dispatcher is initialized on-demand or passed by caller
+        # (eval tests pass their own mock dispatcher)
+        self._function_dispatcher: Optional["FunctionDispatcher"] = None
+
         logger.info("Response generator initialized")
+
+    def set_function_dispatcher(self, dispatcher: "FunctionDispatcher") -> None:
+        """Set function dispatcher (for test mocking).
+
+        Args:
+            dispatcher: FunctionDispatcher instance (can be mock)
+        """
+        self._function_dispatcher = dispatcher
+
+    def _get_function_dispatcher(self) -> "FunctionDispatcher":
+        """Get function dispatcher, creating it if needed.
+
+        Returns:
+            FunctionDispatcher instance
+
+        Raises:
+            LLMError: If dispatcher creation fails
+        """
+        if self._function_dispatcher is None:
+            # Create real dispatcher for production use
+            from guarantee_email_agent.llm.function_dispatcher import FunctionDispatcher
+            from guarantee_email_agent.tools.crm_abacus_tool import CrmAbacusTool
+
+            try:
+                crm_tool = CrmAbacusTool(
+                    config=self.config.tools.crm_abacus,
+                    username=self.config.secrets.crm_abacus_username,
+                    password=self.config.secrets.crm_abacus_password
+                )
+                self._function_dispatcher = FunctionDispatcher(crm_tool=crm_tool)
+                logger.info("Function dispatcher created")
+            except Exception as e:
+                raise LLMError(
+                    message=f"Failed to create function dispatcher: {e}",
+                    code="function_dispatcher_init_failed",
+                    details={"error": str(e)}
+                )
+
+        return self._function_dispatcher
 
     def build_response_system_message(
         self,
@@ -611,17 +654,61 @@ class ResponseGenerator:
             # Build user message from context
             user_message = self._build_step_user_message(context)
 
-            # Call LLM provider with timeout
-            response_text = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self.llm_provider.create_message,
-                    system_prompt=system_message,
-                    user_prompt=user_message,
-                    max_tokens=DEFAULT_MAX_TOKENS,
-                    temperature=DEFAULT_TEMPERATURE
-                ),
-                timeout=self.config.llm.timeout_seconds
-            )
+            # Check if step has function definitions
+            available_functions = step_instruction.get_available_functions()
+
+            if available_functions:
+                # Step requires function calling
+                logger.info(
+                    f"Step {step_name} has {len(available_functions)} functions, using function calling mode",
+                    extra={"step_name": step_name, "function_count": len(available_functions)}
+                )
+
+                # Get or create function dispatcher
+                function_dispatcher = self._get_function_dispatcher()
+
+                # Track how many calls we had before this step
+                calls_before = len(context.function_calls)
+
+                # Use function calling mode
+                function_result = await asyncio.wait_for(
+                    self.llm_provider.create_message_with_functions(
+                        system_prompt=system_message,
+                        user_prompt=user_message,
+                        available_functions=available_functions,
+                        function_dispatcher=function_dispatcher,
+                        max_tokens=DEFAULT_MAX_TOKENS,
+                        temperature=DEFAULT_TEMPERATURE
+                    ),
+                    timeout=self.config.llm.timeout_seconds
+                )
+
+                # Extract response text and function calls from result
+                response_text = function_result.response_text
+
+                # Store ONLY NEW function calls from this step (avoid duplicates)
+                # function_result.function_calls contains ALL calls the dispatcher has seen
+                # so we take only the NEW ones added during this step
+                new_calls = function_result.function_calls[calls_before:]
+                context.function_calls.extend(new_calls)
+
+            else:
+                # Step does not require function calling, use text-only mode
+                logger.info(
+                    f"Step {step_name} has no functions, using text-only mode",
+                    extra={"step_name": step_name}
+                )
+
+                response_text = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self.llm_provider.create_message,
+                        system_prompt=system_message,
+                        user_prompt=user_message,
+                        max_tokens=DEFAULT_MAX_TOKENS,
+                        temperature=DEFAULT_TEMPERATURE
+                    ),
+                    timeout=self.config.llm.timeout_seconds
+                )
 
             # Validate response
             if not response_text or not response_text.strip():

@@ -2,6 +2,16 @@
 name: step-02-check-warranty
 description: Step 2 - Check warranty status by calling API
 version: 1.0.0
+available_functions:
+  - name: check_warranty
+    description: Check warranty status for a product serial number. Returns warranty validity, expiration date, and coverage details.
+    parameters:
+      type: object
+      properties:
+        serial_number:
+          type: string
+          description: Product serial number to check warranty status for
+      required: [serial_number]
 ---
 
 # Step 2: Check Warranty Status
@@ -68,3 +78,17 @@ After calling `check_warranty`, you will receive one of these responses:
 - **ALWAYS call `check_warranty` first** - never assume warranty status
 - **Wait for the API response** before deciding next step
 - The API response determines which step to execute next
+
+## Output Format
+
+After receiving the warranty response, you **MUST** output:
+
+```
+NEXT_STEP: <step-name>
+```
+
+Where `<step-name>` is:
+- `valid-warranty` if status is "valid"
+- `expired-warranty` if status is "expired"
+- `device-not-found` if error is "Device not found"
+- `api-error` for other errors

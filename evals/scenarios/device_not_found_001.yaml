@@ -20,7 +20,7 @@ input:
       message_id: msg-abc129
       status: sent
 expected_output:
-  scenario_instruction_used: invalid-warranty
+  scenario_instruction_used: steps:device-not-found
   processing_time_ms: 60000
   expected_function_calls:
   - function_name: check_warranty
@@ -36,7 +36,6 @@ expected_output:
     - nie odnaleźliśmy
     - głównej tabliczki znamionowej
   expected_steps:
-  - 01-extract-serial
-  - 02-check-warranty
-  - 03b-device-not-found
-  - 05-send-confirmation
+  - extract-serial
+  - check-warranty
+  - device-not-found

@@ -14,7 +14,7 @@ input:
       message_id: msg-abc128
       status: sent
 expected_output:
-  scenario_instruction_used: missing-info
+  scenario_instruction_used: steps:request-serial
   processing_time_ms: 60000
   expected_function_calls:
   - function_name: send_email
@@ -24,5 +24,5 @@ expected_output:
     - szczegółowy opis usterki
     - co dokładnie dzieje się z urządzeniem
   expected_steps:
-  - 01-extract-serial
-  - 03d-request-serial
+  - extract-serial
+  - request-serial

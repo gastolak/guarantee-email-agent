@@ -96,7 +96,7 @@ input:
       message_id: msg-abc123
       status: sent
 expected_output:
-  scenario_instruction_used: valid-warranty
+  scenario_instruction_used: steps:send-confirmation
   processing_time_ms: 60000
   expected_function_calls:
   - function_name: check_warranty
@@ -119,7 +119,7 @@ expected_output:
     - zgłoszenie serwisowe
     - zarejestrowane
   expected_steps:
-  - 01-extract-serial
-  - 02-check-warranty
-  - 03a-valid-warranty
-  - 05-send-confirmation
+  - extract-serial
+  - check-warranty
+  - valid-warranty
+  - send-confirmation

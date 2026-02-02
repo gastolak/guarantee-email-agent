@@ -2,6 +2,22 @@
 name: step-05-send-confirmation
 description: Step 5 - Send confirmation email with ticket details
 version: 1.0.0
+available_functions:
+  - name: send_email
+    description: Send an email to the customer. Returns confirmation of delivery.
+    parameters:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Recipient email address
+        subject:
+          type: string
+          description: Email subject line
+        body:
+          type: string
+          description: Email body content (can include Polish text)
+      required: [to, subject, body]
 ---
 
 # Step 5: Send Confirmation Email
@@ -51,3 +67,11 @@ Dział Serwisu
 ## Next Step
 
 After sending email: **DONE** - warranty RMA workflow complete
+
+## Output Format
+
+After sending the confirmation email, you **MUST** output:
+
+```
+NEXT_STEP: DONE
+```

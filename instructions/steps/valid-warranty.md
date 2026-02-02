@@ -2,6 +2,26 @@
 name: step-03a-valid-warranty
 description: Step 3a - Create support ticket for valid warranty
 version: 1.0.0
+available_functions:
+  - name: create_ticket
+    description: Create a support ticket for a warranty claim. Returns ticket ID and creation timestamp.
+    parameters:
+      type: object
+      properties:
+        serial_number:
+          type: string
+          description: Product serial number for the warranty claim
+        customer_email:
+          type: string
+          description: Customer email address
+        issue_description:
+          type: string
+          description: Description of the device issue
+        priority:
+          type: string
+          description: Ticket priority level
+          enum: [low, normal, high, urgent]
+      required: [serial_number, customer_email, issue_description, priority]
 ---
 
 # Step 3a: Valid Warranty - Create Support Ticket
@@ -41,3 +61,11 @@ After creating ticket: **Go to Step 05 (send-confirmation)** with parameters:
 - serial_number
 - customer_email
 - warranty_expiration_date
+
+## Output Format
+
+After creating the ticket, you **MUST** output:
+
+```
+NEXT_STEP: send-confirmation
+```

@@ -223,6 +223,27 @@ class GeminiProvider(LLMProvider):
             if response.prompt_feedback:
                 logger.debug(f"Prompt feedback: {response.prompt_feedback}")
 
+            # Check finish_reason before accessing response.text
+            # finish_reason=10 (OTHER) means invalid function call or malformed response
+            if response.candidates:
+                candidate = response.candidates[0]
+                if candidate.finish_reason == 10:  # OTHER - typically invalid function call
+                    logger.warning(
+                        f"Gemini returned finish_reason=10 (invalid function call). "
+                        f"Parts: {len(candidate.content.parts) if candidate.content and candidate.content.parts else 0}"
+                    )
+                    # Check if it tried to make a function call
+                    if candidate.content and candidate.content.parts:
+                        for part in candidate.content.parts:
+                            if hasattr(part, 'function_call') and part.function_call:
+                                logger.warning(f"Invalid function call: {part.function_call.name}")
+                    # Return error response for orchestrator to handle
+                    return (
+                        f"NEXT_STEP: DONE\n"
+                        f"ERROR: Gemini attempted invalid function call. "
+                        f"Step-based workflow should not trigger function calls."
+                    )
+
             # Clean markdown formatting from response (Gemini often adds ``` blocks)
             raw_text = response.text
             cleaned_text = clean_markdown_response(raw_text)

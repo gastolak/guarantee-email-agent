@@ -85,9 +85,23 @@ class EvalRunner:
             # Measure processing time
             processing_time_ms = int((time.time() - start_time) * 1000)
 
-            # Get actual function calls from mock dispatcher
+            # Get actual function calls from result.function_calls (step mode)
+            # or from mock dispatcher (legacy mode)
             actual_function_calls: List[ActualFunctionCall] = []
-            if mock_dispatcher:
+            if hasattr(actual_output, 'get') and 'function_calls' in actual_output:
+                # Extract from step mode result
+                raw_function_calls = actual_output.get('function_calls', [])
+                for fc in raw_function_calls:
+                    actual_function_calls.append(ActualFunctionCall(
+                        function_name=fc.function_name,
+                        arguments=fc.arguments,
+                        result=fc.result,
+                        success=fc.success,
+                        execution_time_ms=fc.execution_time_ms,
+                        error_message=fc.error_message if hasattr(fc, 'error_message') else None
+                    ))
+            elif mock_dispatcher:
+                # Legacy: get from mock dispatcher
                 actual_function_calls = mock_dispatcher.get_function_calls()
 
             # Extract actual steps from processing result
@@ -177,6 +191,10 @@ class EvalRunner:
         detector = ScenarioDetector(config, main_instruction.body)
         response_generator = ResponseGenerator(config, main_instruction)
 
+        # Inject mock function dispatcher into response generator
+        mock_dispatcher = create_mock_function_dispatcher(test_case)
+        response_generator.set_function_dispatcher(mock_dispatcher)
+
         # Create processor with mocked tools
         processor = EmailProcessor(
             config=config,
@@ -227,6 +245,7 @@ class EvalRunner:
             "scenario_used": result.scenario_used or "unknown",
             "processing_time_ms": result.processing_time_ms,
             "step_sequence": step_sequence,
+            "function_calls": result.function_calls if hasattr(result, 'function_calls') else [],
         }
 
     def _create_minimal_config(self) -> AgentConfig:
