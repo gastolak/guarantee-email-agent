@@ -144,15 +144,14 @@ class EvalRunner:
         detector = ScenarioDetector(config, main_instruction.body)
         response_generator = ResponseGenerator(config, main_instruction)
 
-        # Create processor with mocked clients
+        # Create processor with mocked tools
         processor = EmailProcessor(
             config=config,
             parser=parser,
             extractor=extractor,
             detector=detector,
-            gmail_client=mocks["gmail"],
-            warranty_client=mocks["warranty"],
-            ticketing_client=mocks["ticketing"],
+            gmail_tool=mocks["gmail_tool"],
+            crm_abacus_tool=mocks["crm_abacus_tool"],
             response_generator=response_generator,
         )
 
@@ -177,10 +176,10 @@ class EvalRunner:
         else:
             result = await processor.process_email(raw_email)
 
-        # Get response body from mock gmail client (last sent email)
+        # Get response body from mock gmail tool (last sent email)
         response_body = ""
-        if mocks["gmail"].sent_emails:
-            response_body = mocks["gmail"].sent_emails[-1].get("body", "")
+        if mocks["gmail_tool"].sent_emails:
+            response_body = mocks["gmail_tool"].sent_emails[-1].get("body", "")
 
         # Return simplified dict for validation
         return {
@@ -256,13 +255,13 @@ class EvalRunner:
             failures.extend(function_failures)
 
         # Check email sent (legacy validation - also checked via function calls)
-        email_sent = len(mocks["gmail"].sent_emails) > 0
+        email_sent = len(mocks["gmail_tool"].sent_emails) > 0
         if expected.email_sent is not None and expected.email_sent != email_sent:
             failures.append(f"email_sent: expected {expected.email_sent}, got {email_sent}")
 
         # Check response body contains
-        if mocks["gmail"].sent_emails:
-            response_body = mocks["gmail"].sent_emails[0]["body"]
+        if mocks["gmail_tool"].sent_emails:
+            response_body = mocks["gmail_tool"].sent_emails[0]["body"]
             for phrase in expected.response_body_contains:
                 if phrase.lower() not in response_body.lower():
                     failures.append(f"response_body_contains: missing phrase '{phrase}'")
@@ -275,7 +274,7 @@ class EvalRunner:
                     )
 
         # Check ticket created (only if explicitly expected, skip for function calling mode)
-        ticket_created = len(mocks["ticketing"].created_tickets) > 0
+        ticket_created = len(mocks["crm_abacus_tool"].created_tickets) > 0
         if expected.ticket_created is not None and expected.ticket_created != ticket_created:
             failures.append(
                 f"ticket_created: expected {expected.ticket_created}, got {ticket_created}"
@@ -283,7 +282,7 @@ class EvalRunner:
 
         # Check ticket fields if ticket created
         if expected.ticket_created and ticket_created and expected.ticket_fields:
-            actual_ticket = mocks["ticketing"].created_tickets[0]["data"]
+            actual_ticket = mocks["crm_abacus_tool"].created_tickets[0]
             for key, expected_value in expected.ticket_fields.items():
                 if actual_ticket.get(key) != expected_value:
                     failures.append(
