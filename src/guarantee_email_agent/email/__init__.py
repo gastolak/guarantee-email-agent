@@ -14,9 +14,7 @@ from guarantee_email_agent.email.processor_models import (
 from guarantee_email_agent.email.scenario_detector import ScenarioDetector
 from guarantee_email_agent.email.serial_extractor import SerialNumberExtractor
 from guarantee_email_agent.instructions.loader import load_instruction_cached
-from guarantee_email_agent.integrations.mcp.gmail_client import GmailMCPClient
-from guarantee_email_agent.integrations.mcp.ticketing_client import TicketingMCPClient
-from guarantee_email_agent.integrations.mcp.warranty_client import WarrantyMCPClient
+from guarantee_email_agent.tools import GmailTool, CrmAbacusTool
 from guarantee_email_agent.llm.response_generator import ResponseGenerator
 
 
@@ -40,10 +38,13 @@ def create_email_processor(config: AgentConfig) -> EmailProcessor:
     extractor = SerialNumberExtractor(config, main_instruction.body)
     detector = ScenarioDetector(config, main_instruction.body)
 
-    # Initialize MCP clients
-    gmail_client = GmailMCPClient(config.mcp.gmail)
-    warranty_client = WarrantyMCPClient(config.mcp.warranty_api)
-    ticketing_client = TicketingMCPClient(config.mcp.ticketing_system)
+    # Initialize tools
+    gmail_tool = GmailTool(config.tools.gmail, config.secrets.gmail_oauth_token)
+    crm_abacus_tool = CrmAbacusTool(
+        config=config.tools.crm_abacus,
+        username=config.secrets.crm_abacus_username,
+        password=config.secrets.crm_abacus_password
+    )
 
     # Initialize response generator
     response_generator = ResponseGenerator(config, main_instruction)
@@ -54,9 +55,8 @@ def create_email_processor(config: AgentConfig) -> EmailProcessor:
         parser=parser,
         extractor=extractor,
         detector=detector,
-        gmail_client=gmail_client,
-        warranty_client=warranty_client,
-        ticketing_client=ticketing_client,
+        gmail_tool=gmail_tool,
+        crm_abacus_tool=crm_abacus_tool,
         response_generator=response_generator,
     )
 

@@ -5,18 +5,47 @@ from typing import List, Optional
 
 
 @dataclass(frozen=True)
-class MCPConnectionConfig:
-    """Configuration for a single MCP connection."""
-    connection_string: str
-    endpoint: Optional[str] = None
+class GmailToolConfig:
+    """Gmail tool configuration."""
+    api_endpoint: str = "https://gmail.googleapis.com/gmail/v1"
+    timeout_seconds: int = 10
 
 
 @dataclass(frozen=True)
-class MCPConfig:
-    """MCP integration configuration."""
-    gmail: MCPConnectionConfig
-    warranty_api: MCPConnectionConfig
-    ticketing_system: MCPConnectionConfig
+class TicketDefaults:
+    """Default IDs for CRM Abacus ticket creation."""
+    dzial_id: int = 2  # Customer Service Department
+    typ_zadania_id: int = 156  # Service Request
+    typ_wykonania_id: int = 184  # Awaiting Review
+    organizacja_id: int = 1  # Suntar
+    unrecognized_klient_id: int = 702  # Default when client not found
+
+
+@dataclass(frozen=True)
+class CrmAbacusToolConfig:
+    """CRM Abacus tool configuration."""
+    base_url: str
+    token_endpoint: str = "/token"
+    warranty_endpoint: str = "/klienci/znajdz_po_numerze_seryjnym/"
+    ticketing_endpoint: str = "/zadania/dodaj_zadanie/"
+    ticket_info_endpoint: str = "/zadania/{zadanie_id}/info/"
+    task_info_endpoint: str = "/zadania/{zadanie_id}"
+    task_feature_check_endpoint: str = "/zadania/{zadanie_id}/cechy/check"
+    timeout_seconds: int = 10
+    ticket_defaults: TicketDefaults = None
+    agent_disable_feature_name: str = "Wyłącz agenta AI"
+
+    def __post_init__(self):
+        """Ensure ticket_defaults exists."""
+        if self.ticket_defaults is None:
+            object.__setattr__(self, 'ticket_defaults', TicketDefaults())
+
+
+@dataclass(frozen=True)
+class ToolsConfig:
+    """Tool integrations configuration."""
+    gmail: GmailToolConfig
+    crm_abacus: CrmAbacusToolConfig
 
 
 @dataclass(frozen=True)
@@ -64,9 +93,9 @@ class SecretsConfig:
     """
     anthropic_api_key: Optional[str] = None  # Required if provider=anthropic
     gemini_api_key: Optional[str] = None  # Required if provider=gemini
-    gmail_api_key: str = ""
-    warranty_api_key: str = ""
-    ticketing_api_key: str = ""
+    gmail_oauth_token: str = ""  # Gmail OAuth2 token
+    crm_abacus_username: str = ""  # CRM Abacus username for token acquisition
+    crm_abacus_password: str = ""  # CRM Abacus password for token acquisition
 
 
 @dataclass(frozen=True)
@@ -80,7 +109,7 @@ class AgentRuntimeConfig:
 @dataclass(frozen=True)
 class AgentConfig:
     """Top-level agent configuration."""
-    mcp: MCPConfig
+    tools: ToolsConfig
     instructions: InstructionsConfig
     eval: EvalConfig
     logging: LoggingConfig

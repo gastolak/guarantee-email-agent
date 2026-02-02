@@ -15,7 +15,8 @@ Examples:
 EXIT_SUCCESS = 0  # Success
 EXIT_GENERAL_ERROR = 1  # General/unexpected errors
 EXIT_CONFIG_ERROR = 2  # Configuration errors
-EXIT_MCP_ERROR = 3  # MCP connection failures during startup
+EXIT_MCP_ERROR = 3  # MCP connection failures during startup (kept for backward compat)
+EXIT_INTEGRATION_ERROR = 3  # Integration failures (tools, APIs) during startup
 EXIT_EVAL_FAILURE = 4  # Eval pass rate <99%
 
 
@@ -194,5 +195,22 @@ class EvalError(AgentError):
     - Validation errors
 
     Include in details: scenario_id, file_path
+    """
+    pass
+
+
+class IntegrationError(TransientError):
+    """External API integration errors.
+
+    Use for tool/API call failures:
+    - HTTP errors (5xx, connection errors)
+    - API timeouts
+    - Service unavailable
+    - Network failures
+
+    Most integration errors are transient and should be retried.
+    Permanent errors (404, 403) can be caught and handled specifically.
+
+    Include in details: tool_name, operation, status_code, endpoint
     """
     pass

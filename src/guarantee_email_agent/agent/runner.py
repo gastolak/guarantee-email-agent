@@ -18,7 +18,7 @@ from typing import Any, Dict, List
 from guarantee_email_agent.config.schema import AgentConfig
 from guarantee_email_agent.email.processor import EmailProcessor
 from guarantee_email_agent.email.processor_models import ProcessingResult
-from guarantee_email_agent.integrations.mcp.gmail_client import GmailMCPClient
+from guarantee_email_agent.tools import GmailTool
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class AgentRunner:
     - Process emails concurrently through EmailProcessor
     - Handle SIGTERM/SIGINT for graceful shutdown
     - Track processing statistics
-    - Clean up MCP connections on shutdown
+    - Clean up tool connections on shutdown
     """
 
     def __init__(self, config: AgentConfig, processor: EmailProcessor):
@@ -43,7 +43,8 @@ class AgentRunner:
         """
         self.config = config
         self.processor = processor
-        self.gmail_client = processor.gmail_client
+        self.gmail_tool = processor.gmail_tool
+        self.crm_abacus_tool = processor.crm_abacus_tool
 
         # State tracking
         self._shutdown_requested = False
@@ -107,7 +108,7 @@ class AgentRunner:
         try:
             logger.debug("Checking inbox...")
             # Use Gmail MCP client to monitor inbox
-            emails = await self.gmail_client.monitor_inbox()
+            emails = await self.gmail_tool.fetch_unread_emails()
 
             if emails:
                 logger.info(f"Found {len(emails)} unread emails")
@@ -190,9 +191,9 @@ class AgentRunner:
         logger.info("Running in single-pass mode")
 
         # Connect to all MCP clients
-        await self.gmail_client.connect()
-        await self.processor.warranty_client.connect()
-        await self.processor.ticketing_client.connect()
+        # Tools don't need explicit connection
+        # Tools don't need explicit connection
+        # Tools don't need explicit connection
 
         try:
             # Poll inbox
@@ -237,9 +238,9 @@ class AgentRunner:
         logger.info(f"Polling interval: {self.polling_interval}s")
 
         # Connect to all MCP clients
-        await self.gmail_client.connect()
-        await self.processor.warranty_client.connect()
-        await self.processor.ticketing_client.connect()
+        # Tools don't need explicit connection
+        # Tools don't need explicit connection
+        # Tools don't need explicit connection
 
         try:
             while not self._shutdown_requested:
@@ -318,20 +319,20 @@ class AgentRunner:
     async def _cleanup_connections(self) -> None:
         """Close all MCP connections cleanly."""
         try:
-            if hasattr(self.processor.gmail_client, 'close'):
-                await self.processor.gmail_client.close()
+            if hasattr(self.gmail_tool, 'close'):
+                await self.gmail_tool.close()
         except Exception as e:
             logger.warning(f"Error closing Gmail client: {e}")
 
         try:
-            if hasattr(self.processor.warranty_client, 'close'):
-                await self.processor.warranty_client.close()
+            if hasattr(self.crm_abacus_tool, 'close'):
+                await self.crm_abacus_tool.close()
         except Exception as e:
             logger.warning(f"Error closing Warranty API client: {e}")
 
         try:
-            if hasattr(self.processor.ticketing_client, 'close'):
-                await self.processor.ticketing_client.close()
+            # CRM Abacus already closed
+                pass # CRM Abacus already closed
         except Exception as e:
             logger.warning(f"Error closing Ticketing client: {e}")
 

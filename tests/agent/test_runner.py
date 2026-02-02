@@ -11,8 +11,10 @@ from guarantee_email_agent.config.schema import (
     AgentRuntimeConfig,
     InstructionsConfig,
     SecretsConfig,
-    MCPConfig,
-    MCPConnectionConfig,
+    ToolsConfig,
+    GmailToolConfig,
+    CrmAbacusToolConfig,
+    TicketDefaults,
     EvalConfig,
     LoggingConfig,
     LLMConfig,
@@ -24,10 +26,15 @@ from guarantee_email_agent.email.processor_models import ProcessingResult
 def mock_config():
     """Create a mock agent config for testing with Gemini provider."""
     return AgentConfig(
-        mcp=MCPConfig(
-            gmail=MCPConnectionConfig(connection_string="gmail://test"),
-            warranty_api=MCPConnectionConfig(connection_string="warranty://test"),
-            ticketing_system=MCPConnectionConfig(connection_string="ticket://test"),
+        tools=ToolsConfig(
+            gmail=GmailToolConfig(
+                api_endpoint="https://gmail.googleapis.com/gmail/v1",
+                timeout_seconds=10
+            ),
+            crm_abacus=CrmAbacusToolConfig(
+                base_url="http://test-crm.local",
+                ticket_defaults=TicketDefaults()
+            ),
         ),
         instructions=InstructionsConfig(
             main="main.md",
@@ -46,9 +53,9 @@ def mock_config():
         secrets=SecretsConfig(
             anthropic_api_key=None,
             gemini_api_key="test-gemini-key",
-            gmail_api_key="gmail-key",
-            warranty_api_key="warranty-key",
-            ticketing_api_key="ticket-key",
+            gmail_oauth_token="gmail-token",
+            crm_abacus_username="test-user",
+            crm_abacus_password="test-pass",
         ),
         agent=AgentRuntimeConfig(polling_interval_seconds=1),  # Fast for testing
     )
@@ -58,16 +65,11 @@ def mock_config():
 def mock_processor():
     """Create a mock email processor."""
     processor = Mock()
-    processor.gmail_client = Mock()
-    processor.gmail_client.connect = AsyncMock()  # Added for runner.run()
-    processor.gmail_client.monitor_inbox = AsyncMock(return_value=[])  # Changed from get_unread_emails
-    processor.gmail_client.close = AsyncMock()
-    processor.warranty_client = Mock()
-    processor.warranty_client.connect = AsyncMock()  # Added for runner.run()
-    processor.warranty_client.close = AsyncMock()
-    processor.ticketing_client = Mock()
-    processor.ticketing_client.connect = AsyncMock()  # Added for runner.run()
-    processor.ticketing_client.close = AsyncMock()
+    processor.gmail_tool = Mock()
+    processor.gmail_tool.fetch_unread_emails = AsyncMock(return_value=[])
+    processor.gmail_tool.close = AsyncMock()
+    processor.crm_abacus_tool = Mock()
+    processor.crm_abacus_tool.close = AsyncMock()
     processor.process_email = AsyncMock(return_value=ProcessingResult(
         success=True,
         email_id="test-123",
@@ -127,12 +129,12 @@ async def test_poll_inbox_no_emails(mock_config, mock_processor):
     """Test polling inbox returns empty list when no emails."""
     runner = AgentRunner(mock_config, mock_processor)
 
-    mock_processor.gmail_client.monitor_inbox = AsyncMock(return_value=[])
+    mock_processor.gmail_tool.fetch_unread_emails = AsyncMock(return_value=[])
 
     emails = await runner.poll_inbox()
 
     assert emails == []
-    mock_processor.gmail_client.monitor_inbox.assert_called_once()
+    mock_processor.gmail_tool.fetch_unread_emails.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -144,7 +146,7 @@ async def test_poll_inbox_with_emails(mock_config, mock_processor):
         {"id": "1", "subject": "Test 1"},
         {"id": "2", "subject": "Test 2"},
     ]
-    mock_processor.gmail_client.monitor_inbox = AsyncMock(return_value=test_emails)
+    mock_processor.gmail_tool.fetch_unread_emails = AsyncMock(return_value=test_emails)
 
     emails = await runner.poll_inbox()
 
@@ -158,7 +160,7 @@ async def test_poll_inbox_error_handling(mock_config, mock_processor):
     runner = AgentRunner(mock_config, mock_processor)
 
     # Simulate error
-    mock_processor.gmail_client.monitor_inbox = AsyncMock(
+    mock_processor.gmail_tool.fetch_unread_emails = AsyncMock(
         side_effect=Exception("Gmail API error")
     )
 
@@ -243,12 +245,12 @@ async def test_run_shutdown_immediately(mock_config, mock_processor):
     runner = AgentRunner(mock_config, mock_processor)
     runner._shutdown_requested = True  # Request shutdown before starting
 
-    mock_processor.gmail_client.monitor_inbox = AsyncMock(return_value=[])
+    mock_processor.gmail_tool.fetch_unread_emails = AsyncMock(return_value=[])
 
     await runner.run()
 
     # Should exit immediately without polling
-    mock_processor.gmail_client.monitor_inbox.assert_not_called()
+    mock_processor.gmail_tool.fetch_unread_emails.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -256,7 +258,7 @@ async def test_run_shutdown_after_one_iteration(mock_config, mock_processor):
     """Test run loop exits after processing one iteration."""
     runner = AgentRunner(mock_config, mock_processor)
 
-    mock_processor.gmail_client.monitor_inbox = AsyncMock(return_value=[])
+    mock_processor.gmail_tool.fetch_unread_emails = AsyncMock(return_value=[])
 
     # Set shutdown flag after short delay
     async def shutdown_after_delay():
@@ -270,20 +272,20 @@ async def test_run_shutdown_after_one_iteration(mock_config, mock_processor):
     )
 
     # Should have polled at least once
-    assert mock_processor.gmail_client.monitor_inbox.called
+    assert mock_processor.gmail_tool.fetch_unread_emails.called
 
 
 @pytest.mark.asyncio
 async def test_graceful_shutdown_cleanup(mock_config, mock_processor):
-    """Test graceful shutdown closes all connections."""
+    """Test graceful shutdown closes all tool connections."""
     runner = AgentRunner(mock_config, mock_processor)
 
     await runner._graceful_shutdown()
 
-    # Should close all MCP connections
-    mock_processor.gmail_client.close.assert_called_once()
-    mock_processor.warranty_client.close.assert_called_once()
-    mock_processor.ticketing_client.close.assert_called_once()
+    # Should close all tool connections
+    mock_processor.gmail_tool.close.assert_called_once()
+    # CRM Abacus tool close is called once (combines warranty + ticketing)
+    mock_processor.crm_abacus_tool.close.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -292,14 +294,13 @@ async def test_cleanup_connections_handles_errors(mock_config, mock_processor):
     runner = AgentRunner(mock_config, mock_processor)
 
     # Simulate error during cleanup
-    mock_processor.gmail_client.close = AsyncMock(side_effect=Exception("Close failed"))
+    mock_processor.gmail_tool.close = AsyncMock(side_effect=Exception("Close failed"))
 
     # Should not raise exception
     await runner._cleanup_connections()
 
-    # Should still attempt to close other connections
-    mock_processor.warranty_client.close.assert_called_once()
-    mock_processor.ticketing_client.close.assert_called_once()
+    # Should still attempt to close other tool
+    mock_processor.crm_abacus_tool.close.assert_called_once()
 
 
 @pytest.mark.asyncio

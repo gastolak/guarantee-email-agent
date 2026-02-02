@@ -1,83 +1,49 @@
-"""Function dispatcher for routing LLM function calls to clients.
+"""Function dispatcher for routing LLM function calls to tools.
 
 This module provides the FunctionDispatcher class that routes function calls
-from the LLM to the appropriate MCP client methods.
+from the LLM to the appropriate tool methods.
 """
 
 import logging
 import time
-from typing import Any, Callable, Dict, Optional, Protocol
+from typing import Any, Dict, Optional
 
 from guarantee_email_agent.llm.function_calling import FunctionCall
+from guarantee_email_agent.tools import GmailTool, CrmAbacusTool
 
 logger = logging.getLogger(__name__)
 
 
-class WarrantyClientProtocol(Protocol):
-    """Protocol for warranty client interface."""
-
-    async def check_warranty(self, serial_number: str) -> Dict[str, Any]:
-        """Check warranty status for a serial number."""
-        ...
-
-
-class TicketingClientProtocol(Protocol):
-    """Protocol for ticketing client interface."""
-
-    async def create_ticket(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a support ticket."""
-        ...
-
-
-class GmailClientProtocol(Protocol):
-    """Protocol for Gmail client interface."""
-
-    async def send_email(
-        self,
-        to: str,
-        subject: str,
-        body: str,
-        thread_id: Optional[str] = None
-    ) -> str:
-        """Send an email."""
-        ...
-
-
 class FunctionDispatcher:
-    """Dispatch function calls from LLM to appropriate MCP clients.
+    """Dispatch function calls from LLM to appropriate tools.
 
-    Maps function names to client methods and handles execution with
+    Maps function names to tool methods and handles execution with
     logging, timing, and error handling.
 
     Attributes:
-        warranty_client: Client for warranty API calls
-        ticketing_client: Client for ticketing system calls
-        gmail_client: Client for Gmail operations
+        gmail_tool: Gmail tool for email operations
+        crm_abacus_tool: CRM Abacus tool for warranty and ticketing
     """
 
     def __init__(
         self,
-        warranty_client: Optional[WarrantyClientProtocol] = None,
-        ticketing_client: Optional[TicketingClientProtocol] = None,
-        gmail_client: Optional[GmailClientProtocol] = None
+        gmail_tool: Optional[GmailTool] = None,
+        crm_abacus_tool: Optional[CrmAbacusTool] = None
     ):
-        """Initialize FunctionDispatcher with client instances.
+        """Initialize FunctionDispatcher with tool instances.
 
         Args:
-            warranty_client: Warranty API MCP client
-            ticketing_client: Ticketing system MCP client
-            gmail_client: Gmail MCP client
+            gmail_tool: Gmail tool for email operations
+            crm_abacus_tool: CRM Abacus tool for warranty and ticketing
         """
-        self._warranty_client = warranty_client
-        self._ticketing_client = ticketing_client
-        self._gmail_client = gmail_client
+        self._gmail_tool = gmail_tool
+        self._crm_abacus_tool = crm_abacus_tool
 
         logger.info(
             "FunctionDispatcher initialized",
             extra={
-                "has_warranty_client": warranty_client is not None,
-                "has_ticketing_client": ticketing_client is not None,
-                "has_gmail_client": gmail_client is not None
+                "has_gmail_tool": gmail_tool is not None,
+                "has_crm_abacus_tool": crm_abacus_tool is not None
             }
         )
 
@@ -174,36 +140,54 @@ class FunctionDispatcher:
             Warranty status result
 
         Raises:
-            ValueError: If warranty client not configured or serial_number missing
+            ValueError: If CRM Abacus tool not configured or serial_number missing
         """
-        if self._warranty_client is None:
-            raise ValueError("Warranty client not configured")
+        if self._crm_abacus_tool is None:
+            raise ValueError("CRM Abacus tool not configured")
 
         serial_number = arguments.get("serial_number")
         if not serial_number:
             raise ValueError("Missing required argument: serial_number")
 
-        result = await self._warranty_client.check_warranty(serial_number)
+        result = await self._crm_abacus_tool.check_warranty(serial_number)
         return result
 
     async def _execute_create_ticket(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute create_ticket function.
 
         Args:
-            arguments: Ticket data (serial_number, customer_email, priority, etc.)
+            arguments: Must contain 'subject', 'description'; optional 'customer_email', 'priority'
 
         Returns:
-            Ticket creation result
+            Ticket creation result with ticket_id
 
         Raises:
-            ValueError: If ticketing client not configured
+            ValueError: If CRM Abacus tool not configured or required args missing
         """
-        if self._ticketing_client is None:
-            raise ValueError("Ticketing client not configured")
+        if self._crm_abacus_tool is None:
+            raise ValueError("CRM Abacus tool not configured")
 
-        # Pass all arguments as ticket_data
-        result = await self._ticketing_client.create_ticket(arguments)
-        return result
+        subject = arguments.get("subject")
+        description = arguments.get("description")
+        customer_email = arguments.get("customer_email")
+        priority = arguments.get("priority")
+
+        if not subject:
+            raise ValueError("Missing required argument: subject")
+        if not description:
+            raise ValueError("Missing required argument: description")
+
+        ticket_id = await self._crm_abacus_tool.create_ticket(
+            subject=subject,
+            description=description,
+            customer_email=customer_email,
+            priority=priority
+        )
+
+        return {
+            "ticket_id": ticket_id,
+            "status": "created"
+        }
 
     async def _execute_send_email(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute send_email function.
@@ -215,10 +199,10 @@ class FunctionDispatcher:
             Email send result with message_id and status
 
         Raises:
-            ValueError: If Gmail client not configured or required args missing
+            ValueError: If Gmail tool not configured or required args missing
         """
-        if self._gmail_client is None:
-            raise ValueError("Gmail client not configured")
+        if self._gmail_tool is None:
+            raise ValueError("Gmail tool not configured")
 
         to = arguments.get("to")
         subject = arguments.get("subject")
@@ -232,7 +216,7 @@ class FunctionDispatcher:
         if not body:
             raise ValueError("Missing required argument: body")
 
-        message_id = await self._gmail_client.send_email(
+        message_id = await self._gmail_tool.send_email(
             to=to,
             subject=subject,
             body=body,
@@ -245,16 +229,14 @@ class FunctionDispatcher:
         }
 
     def get_available_functions(self) -> list[str]:
-        """Get list of available function names based on configured clients.
+        """Get list of available function names based on configured tools.
 
         Returns:
             List of function names that can be executed
         """
         available = []
-        if self._warranty_client is not None:
-            available.append("check_warranty")
-        if self._ticketing_client is not None:
-            available.append("create_ticket")
-        if self._gmail_client is not None:
+        if self._crm_abacus_tool is not None:
+            available.extend(["check_warranty", "create_ticket"])
+        if self._gmail_tool is not None:
             available.append("send_email")
         return available

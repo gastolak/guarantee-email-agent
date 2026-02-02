@@ -1,4 +1,4 @@
-"""Mock framework for MCP and LLM clients in eval."""
+"""Mock framework for tools and LLM clients in eval."""
 
 import logging
 import time
@@ -10,8 +10,8 @@ from guarantee_email_agent.llm.function_calling import FunctionCall
 logger = logging.getLogger(__name__)
 
 
-class MockGmailClient:
-    """Mock Gmail MCP client for eval."""
+class MockGmailTool:
+    """Mock Gmail tool for eval."""
 
     def __init__(self, test_case: EvalTestCase):
         """Initialize with test case data.
@@ -22,7 +22,7 @@ class MockGmailClient:
         self.test_case = test_case
         self.sent_emails: List[Dict[str, Any]] = []
 
-    async def get_unread_emails(self) -> List[Dict[str, Any]]:
+    async def fetch_unread_emails(self) -> List[Dict[str, Any]]:
         """Return email from test case."""
         # Not used in eval (email provided directly)
         return []
@@ -33,7 +33,7 @@ class MockGmailClient:
         subject: str,
         body: str,
         thread_id: Optional[str] = None,
-    ) -> None:
+    ) -> str:
         """Capture sent email (don't actually send).
 
         Args:
@@ -41,6 +41,9 @@ class MockGmailClient:
             subject: Email subject
             body: Email body
             thread_id: Optional thread ID
+
+        Returns:
+            Mock message ID
         """
         sent_email = {
             "to": to,
@@ -50,14 +53,19 @@ class MockGmailClient:
         }
         self.sent_emails.append(sent_email)
         logger.debug(f"Mock: Email sent to {to}")
+        return f"mock-msg-{len(self.sent_emails)}"
+
+    async def mark_as_read(self, message_id: str) -> None:
+        """Mark as read (no-op for mock)."""
+        pass
 
     async def close(self) -> None:
         """Close connection (no-op for mock)."""
         pass
 
 
-class MockWarrantyAPIClient:
-    """Mock Warranty API MCP client for eval."""
+class MockCrmAbacusTool:
+    """Mock CRM Abacus tool for eval (combines warranty + ticketing)."""
 
     def __init__(self, test_case: EvalTestCase):
         """Initialize with mock responses from test case.
@@ -65,7 +73,9 @@ class MockWarrantyAPIClient:
         Args:
             test_case: Eval test case with mock_responses
         """
-        self.mock_responses = test_case.input.mock_responses.get("warranty_api", {})
+        self.warranty_responses = test_case.input.mock_responses.get("warranty_api", {})
+        self.ticketing_responses = test_case.input.mock_responses.get("ticketing_system", {})
+        self.created_tickets: List[Dict[str, Any]] = []
 
     async def check_warranty(self, serial_number: str) -> Dict[str, Any]:
         """Return mock warranty data.
@@ -77,7 +87,78 @@ class MockWarrantyAPIClient:
             Mock warranty data from test case
         """
         logger.debug(f"Mock: Checking warranty for {serial_number}")
-        return self.mock_responses
+        return self.warranty_responses
+
+    async def create_ticket(
+        self,
+        subject: str,
+        description: str,
+        customer_email: Optional[str] = None,
+        priority: Optional[str] = None
+    ) -> str:
+        """Capture ticket creation (don't actually create).
+
+        Args:
+            subject: Ticket subject
+            description: Ticket description
+            customer_email: Customer email (optional)
+            priority: Priority level (optional)
+
+        Returns:
+            Mock ticket ID
+        """
+        ticket = {
+            "subject": subject,
+            "description": description,
+            "customer_email": customer_email,
+            "priority": priority
+        }
+        self.created_tickets.append(ticket)
+        ticket_id = f"TICKET-{len(self.created_tickets)}"
+        logger.debug(f"Mock: Created ticket {ticket_id}")
+        return ticket_id
+
+    async def add_ticket_info(self, zadanie_id: int, info_text: str) -> None:
+        """Add info to ticket (no-op for mock)."""
+        pass
+
+    async def get_task_info(self, zadanie_id: int) -> Dict[str, Any]:
+        """Get task info (mock)."""
+        return {"zadanie_id": zadanie_id, "temat": "Mock Task"}
+
+    async def check_agent_disabled(self, zadanie_id: int) -> bool:
+        """Check if agent disabled (always False in mock)."""
+        return False
+
+    async def close(self) -> None:
+        """Close connection (no-op for mock)."""
+        pass
+
+
+# Legacy aliases for backward compatibility
+MockGmailClient = MockGmailTool
+MockWarrantyAPIClient = MockCrmAbacusTool
+
+
+class MockTicketingSystemClient:
+    """Legacy mock - redirects to MockCrmAbacusTool."""
+
+    def __init__(self, test_case: EvalTestCase):
+        self._tool = MockCrmAbacusTool(test_case)
+        self.created_tickets = self._tool.created_tickets
+
+    async def create_ticket(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create ticket with legacy interface."""
+        ticket_id = await self._tool.create_ticket(
+            subject=ticket_data.get("subject", ""),
+            description=ticket_data.get("description", ""),
+            customer_email=ticket_data.get("customer_email"),
+            priority=ticket_data.get("priority")
+        )
+        return {"ticket_id": ticket_id, "status": "created"}
+
+    async def close(self) -> None:
+        await self._tool.close()
 
     async def test_connection(self) -> None:
         """Test connection (no-op for mock)."""
@@ -121,19 +202,23 @@ class MockTicketingClient:
 
 def create_mock_clients(test_case: EvalTestCase) -> Dict[str, Any]:
     """
-    Create mock clients for eval execution.
+    Create mock tools for eval execution.
 
     Args:
         test_case: Eval test case
 
     Returns:
-        Dict with mock client instances
+        Dict with mock tool instances (gmail_tool, crm_abacus_tool)
     """
-    logger.info("Using mocked integrations for eval")
+    logger.info("Using mocked tools for eval")
+    crm_tool = MockCrmAbacusTool(test_case)
     return {
+        "gmail_tool": MockGmailTool(test_case),
+        "crm_abacus_tool": crm_tool,
+        # Legacy keys for backward compatibility
         "gmail": MockGmailClient(test_case),
-        "warranty": MockWarrantyAPIClient(test_case),
-        "ticketing": MockTicketingClient(),
+        "warranty": crm_tool,
+        "ticketing": MockTicketingSystemClient(test_case),
     }
 
 

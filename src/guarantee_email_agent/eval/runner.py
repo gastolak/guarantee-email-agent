@@ -197,8 +197,10 @@ class EvalRunner:
             AgentRuntimeConfig,
             InstructionConfig,
             LoggingConfig,
-            MCPConfig,
-            MCPServerConfig,
+            ToolsConfig,
+            GmailToolConfig,
+            CrmAbacusToolConfig,
+            TicketDefaults,
             SecretsConfig,
         )
 
@@ -209,10 +211,15 @@ class EvalRunner:
                 scenarios_dir="instructions/scenarios",
             ),
             logging=LoggingConfig(level="INFO"),
-            mcp=MCPConfig(
-                gmail=MCPServerConfig(connection_string="stdio://mock"),
-                warranty_api=MCPServerConfig(connection_string="stdio://mock"),
-                ticketing_system=MCPServerConfig(connection_string="stdio://mock"),
+            tools=ToolsConfig(
+                gmail=GmailToolConfig(
+                    api_endpoint="https://gmail.googleapis.com/gmail/v1",
+                    timeout_seconds=10
+                ),
+                crm_abacus=CrmAbacusToolConfig(
+                    base_url="http://mock-crm.local",
+                    ticket_defaults=TicketDefaults()
+                )
             ),
             secrets=SecretsConfig(anthropic_api_key="mock-key-for-eval"),
         )

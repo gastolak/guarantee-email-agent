@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 from guarantee_email_agent.config.schema import (
     AgentConfig,
     AgentRuntimeConfig,
-    MCPConfig,
-    MCPConnectionConfig,
+    ToolsConfig,
+    GmailToolConfig, CrmAbacusToolConfig, TicketDefaults,
     InstructionsConfig,
     EvalConfig,
     LLMConfig,
@@ -40,16 +40,16 @@ def load_secrets() -> SecretsConfig:
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip() or None
 
     # Other API keys (can be empty for testing/mock mode)
-    gmail_key = os.getenv("GMAIL_API_KEY", "").strip()
-    warranty_key = os.getenv("WARRANTY_API_KEY", "").strip()
-    ticketing_key = os.getenv("TICKETING_API_KEY", "").strip()
+    gmail_key = os.getenv("GMAIL_OAUTH_TOKEN", "").strip()
+    warranty_key = os.getenv("CRM_ABACUS_USERNAME", "").strip()
+    ticketing_key = os.getenv("CRM_ABACUS_PASSWORD", "").strip()
 
     return SecretsConfig(
         anthropic_api_key=anthropic_key,
         gemini_api_key=gemini_key,
-        gmail_api_key=gmail_key,
-        warranty_api_key=warranty_key,
-        ticketing_api_key=ticketing_key
+        gmail_oauth_token=gmail_key,
+        crm_abacus_username=warranty_key,
+        crm_abacus_password=ticketing_key
     )
 
 
@@ -93,47 +93,41 @@ def load_config(config_path: str = None) -> AgentConfig:
 
     # Parse nested sections into dataclasses with detailed error tracking
     try:
-        # Parse MCP config with field path tracking
+        # Parse tools config with field path tracking
         try:
-            mcp_data = raw_config['mcp']
+            tools_data = raw_config['tools']
         except KeyError:
             raise ConfigurationError(
-                message="Missing required config field: mcp",
+                message="Missing required config field: tools",
                 code="config_missing_field",
-                details={"field": "mcp"}
+                details={"field": "tools"}
             )
 
         try:
-            gmail_conn = MCPConnectionConfig(**mcp_data['gmail'])
+            gmail_tool = GmailToolConfig(**tools_data['gmail'])
         except KeyError as e:
             raise ConfigurationError(
-                message=f"Missing required config field: mcp.gmail.{e.args[0] if e.args else 'gmail'}",
+                message=f"Missing required config field: tools.gmail.{e.args[0] if e.args else 'gmail'}",
                 code="config_missing_field",
-                details={"field": f"mcp.gmail.{e.args[0] if e.args else 'gmail'}"}
+                details={"field": f"tools.gmail.{e.args[0] if e.args else 'gmail'}"}
             )
 
         try:
-            warranty_conn = MCPConnectionConfig(**mcp_data['warranty_api'])
+            crm_data = tools_data['crm_abacus'].copy()
+            # Parse nested ticket_defaults if present
+            if 'ticket_defaults' in crm_data and crm_data['ticket_defaults']:
+                crm_data['ticket_defaults'] = TicketDefaults(**crm_data['ticket_defaults'])
+            crm_abacus_tool = CrmAbacusToolConfig(**crm_data)
         except KeyError as e:
             raise ConfigurationError(
-                message=f"Missing required config field: mcp.warranty_api.{e.args[0] if e.args else 'warranty_api'}",
+                message=f"Missing required config field: tools.crm_abacus.{e.args[0] if e.args else 'crm_abacus'}",
                 code="config_missing_field",
-                details={"field": f"mcp.warranty_api.{e.args[0] if e.args else 'warranty_api'}"}
+                details={"field": f"tools.crm_abacus.{e.args[0] if e.args else 'crm_abacus'}"}
             )
 
-        try:
-            ticketing_conn = MCPConnectionConfig(**mcp_data['ticketing_system'])
-        except KeyError as e:
-            raise ConfigurationError(
-                message=f"Missing required config field: mcp.ticketing_system.{e.args[0] if e.args else 'ticketing_system'}",
-                code="config_missing_field",
-                details={"field": f"mcp.ticketing_system.{e.args[0] if e.args else 'ticketing_system'}"}
-            )
-
-        mcp_config = MCPConfig(
-            gmail=gmail_conn,
-            warranty_api=warranty_conn,
-            ticketing_system=ticketing_conn
+        tools_config = ToolsConfig(
+            gmail=gmail_tool,
+            crm_abacus=crm_abacus_tool
         )
 
         # Parse instructions config
@@ -193,7 +187,7 @@ def load_config(config_path: str = None) -> AgentConfig:
                 )
 
         return AgentConfig(
-            mcp=mcp_config,
+            tools=tools_config,
             instructions=instructions_config,
             eval=eval_config,
             logging=logging_config,

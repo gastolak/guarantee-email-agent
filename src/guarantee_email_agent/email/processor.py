@@ -31,9 +31,7 @@ from guarantee_email_agent.email.processor_models import (
 )
 from guarantee_email_agent.email.scenario_detector import ScenarioDetector
 from guarantee_email_agent.email.serial_extractor import SerialNumberExtractor
-from guarantee_email_agent.integrations.mcp.gmail_client import GmailMCPClient
-from guarantee_email_agent.integrations.mcp.ticketing_client import TicketingMCPClient
-from guarantee_email_agent.integrations.mcp.warranty_client import WarrantyMCPClient
+from guarantee_email_agent.tools import GmailTool, CrmAbacusTool
 from guarantee_email_agent.llm.response_generator import ResponseGenerator
 from guarantee_email_agent.llm.function_dispatcher import FunctionDispatcher
 from guarantee_email_agent.utils.errors import AgentError, ProcessingError
@@ -57,9 +55,8 @@ class EmailProcessor:
         parser: EmailParser,
         extractor: SerialNumberExtractor,
         detector: ScenarioDetector,
-        gmail_client: GmailMCPClient,
-        warranty_client: WarrantyMCPClient,
-        ticketing_client: TicketingMCPClient,
+        gmail_tool: GmailTool,
+        crm_abacus_tool: CrmAbacusTool,
         response_generator: ResponseGenerator,
     ):
         """Initialize email processor with all dependencies.
@@ -69,46 +66,47 @@ class EmailProcessor:
             parser: Email parser
             extractor: Serial number extractor
             detector: Scenario detector
-            gmail_client: Gmail MCP client (Story 2.1)
-            warranty_client: Warranty API MCP client (Story 2.1)
-            ticketing_client: Ticketing MCP client (Story 2.1)
+            gmail_tool: Gmail tool for email operations
+            crm_abacus_tool: CRM Abacus tool for warranty and ticketing
             response_generator: LLM response generator
         """
         self.config = config
         self.parser = parser
         self.extractor = extractor
         self.detector = detector
-        self.gmail_client = gmail_client
-        self.warranty_client = warranty_client
-        self.ticketing_client = ticketing_client
+        self.gmail_tool = gmail_tool
+        self.crm_abacus_tool = crm_abacus_tool
         self.response_generator = response_generator
 
-        logger.info("Email processor initialized with all dependencies")
+        # Create function dispatcher for LLM function calling
+        self.function_dispatcher = FunctionDispatcher(
+            gmail_tool=gmail_tool,
+            crm_abacus_tool=crm_abacus_tool
+        )
+
+        logger.info("Email processor initialized with tools")
 
     async def process_email(self, raw_email: Dict[str, Any]) -> ProcessingResult:
         """Process email end-to-end through complete pipeline.
 
-        Pipeline steps:
-        1. Parse email → EmailMessage
-        2. Extract serial number → SerialExtractionResult
-        3. Detect scenario → ScenarioDetectionResult
-        4. Validate warranty (if applicable) → warranty_data
-        5. Generate response → response_text
-        6. Send email response → sent confirmation
-        7. Create ticket (if valid warranty) → ticket_id
+        DEPRECATED: Use process_email_with_functions() instead (Story 4.5+)
+
+        This method used the legacy non-function-calling pipeline.
+        As of Story 4.5, all processing uses LLM function calling.
 
         Args:
-            raw_email: Raw email data from Gmail MCP
+            raw_email: Raw email data
 
         Returns:
             ProcessingResult with processing outcome and details
 
-        Note:
-            Processing time target: <60s (p95 per NFR7)
-            No silent failures: all errors logged (NFR5)
+        Raises:
+            NotImplementedError: This method is deprecated
         """
-        start_time = time.time()
-        email_id = raw_email.get("message_id", f"temp-{int(time.time())}")
+        raise NotImplementedError(
+            "Legacy process_email() is deprecated. "
+            "Use process_email_with_functions() instead (Story 4.5+)"
+        )
 
         logger.info(
             f"Starting email processing: email_id={email_id}",
@@ -589,15 +587,11 @@ class EmailProcessor:
             # Step 4: LLM function calling
             logger.info(f"Step 4/4: LLM function calling: {email_id}")
             try:
-                # Use provided dispatcher or create one with MCP clients
+                # Use provided dispatcher or use the one initialized in __init__
                 if function_dispatcher is not None:
                     dispatcher = function_dispatcher
                 else:
-                    dispatcher = FunctionDispatcher(
-                        warranty_client=self.warranty_client,
-                        ticketing_client=self.ticketing_client,
-                        gmail_client=self.gmail_client
-                    )
+                    dispatcher = self.function_dispatcher
 
                 # Check if scenario supports function calling
                 scenario_instruction = self.response_generator.router.select_scenario(scenario_used)

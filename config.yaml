@@ -35,23 +35,33 @@ logging:
   json_format: false  # true for production (machine-readable), false for development (human-readable)
   log_to_stdout: true  # Always true per NFR16 (stateless)
 
-# MCP Connection Configuration
-# These connection strings will be used to connect to MCP servers
-# Actual API keys/secrets are loaded from environment variables
-mcp:
+# Tool Configuration
+# Direct API integration (no MCP layer)
+# Credentials loaded from environment variables
+tools:
   gmail:
-    connection_string: "mcp://gmail"
-    # Gmail MCP server configuration (community server)
-    # Uses GMAIL_API_KEY from environment
+    api_endpoint: "https://gmail.googleapis.com/gmail/v1"
+    timeout_seconds: 10
+    # Uses GMAIL_OAUTH_TOKEN from environment
 
-  ticketing_system:
-    connection_string: "mcp://ticketing"
-    endpoint: "https://tickets.example.com/api/v1"
-    # Custom MCP server wrapping ticketing system
-    # Uses TICKETING_API_KEY from environment
+  crm_abacus:
+    base_url: "http://crmabacus.suntar.pl:43451"
+    token_endpoint: "/token"
+    warranty_endpoint: "/klienci/znajdz_po_numerze_seryjnym/"
+    ticketing_endpoint: "/zadania/dodaj_zadanie/"
+    ticket_info_endpoint: "/zadania/{zadanie_id}/info/"
+    task_info_endpoint: "/zadania/{zadanie_id}"
+    task_feature_check_endpoint: "/zadania/{zadanie_id}/cechy/check"
+    timeout_seconds: 10
+    # Uses CRM_ABACUS_USERNAME and CRM_ABACUS_PASSWORD from environment
 
-  warranty_api:
-    connection_string: "mcp://warranty-api"
-    endpoint: "https://api.example.com/warranty/check"
-    # Custom MCP server wrapping warranty API
-    # Uses WARRANTY_API_KEY from environment
+    # Default IDs for ticket creation (per CRM Abacus API spec)
+    ticket_defaults:
+      dzial_id: 2                    # Customer Service Department
+      typ_zadania_id: 156            # Service Request type
+      typ_wykonania_id: 184          # Awaiting Review status
+      organizacja_id: 1              # Suntar organization
+      unrecognized_klient_id: 702    # Default client when device not found
+
+    # Feature flag name for disabling AI agent responses
+    agent_disable_feature_name: "Wyłącz agenta AI"
