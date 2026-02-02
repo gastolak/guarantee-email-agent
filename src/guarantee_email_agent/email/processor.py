@@ -790,7 +790,7 @@ class EmailProcessor:
             AgentError: If orchestration fails
         """
         start_time = time.time()
-        email_id = raw_email.id
+        email_id = raw_email.get("id", "eval-email") if isinstance(raw_email, dict) else raw_email.id
 
         # Initialize tracking variables
         serial_number = None
@@ -803,7 +803,7 @@ class EmailProcessor:
         try:
             # Step 1: Parse email
             logger.info(f"Step 1/2: Parsing email: {email_id}")
-            email = self.email_parser.parse_email(raw_email)
+            email = self.parser.parse_email(raw_email)
 
             logger.info(
                 f"Email parsed: {email.subject}",
