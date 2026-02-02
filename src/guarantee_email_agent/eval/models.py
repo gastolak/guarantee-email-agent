@@ -44,6 +44,9 @@ class EvalExpectedOutput:
     # Function call expectations (new - primary validation method)
     expected_function_calls: Optional[List[ExpectedFunctionCall]] = None
 
+    # Step-based workflow expectations (Story 5.1)
+    expected_steps: Optional[List[str]] = None  # Expected step sequence (e.g., ["01-extract-serial", "02-check-warranty", "DONE"])
+
     # Legacy fields (kept for backwards compatibility, derived from function calls)
     email_sent: Optional[bool] = None  # Derived from send_email function call
     response_body_contains: Optional[List[str]] = None  # Moved to send_email body_contains
@@ -86,6 +89,7 @@ class EvalResult:
     actual_output: Dict[str, Any]
     processing_time_ms: int
     actual_function_calls: List[ActualFunctionCall] = field(default_factory=list)
+    actual_steps: List[str] = field(default_factory=list)  # Actual step sequence (Story 5.1)
 
     def format_for_display(self) -> str:
         """Format result for display."""

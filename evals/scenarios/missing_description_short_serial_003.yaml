@@ -1,29 +1,27 @@
 scenario_id: missing_description_short_serial_003
-description: "Customer provides very short serial '1234' with no issue description"
+description: Customer provides very short serial '1234' with no issue description
 category: missing-info
-created: "2026-02-02"
-
+created: '2026-02-02'
 input:
   email:
-    subject: "Hej"
-    body: "Naprawcie please mi sprzęt o numerze seryjnym: 1234"
-    from: "maciek.gastol@gmail.com"
-    received: "2025-10-15T16:30:00Z"
-
+    subject: Hej
+    body: 'Naprawcie please mi sprzęt o numerze seryjnym: 1234'
+    from: maciek.gastol@gmail.com
+    received: '2025-10-15T16:30:00Z'
   mock_function_responses:
     send_email:
-      message_id: "msg-abc130"
-      status: "sent"
-
+      message_id: msg-abc130
+      status: sent
 expected_output:
-  scenario_instruction_used: "missing-info"
+  scenario_instruction_used: missing-info
   processing_time_ms: 60000
-
   expected_function_calls:
-    # Request more detailed issue description (serial too short, suspicious)
-    - function_name: send_email
-      arguments_contain:
-        to: "maciek.gastol@gmail.com"
-      body_contains:
-        - "szczegółowy opis usterki"
-        - "co dokładnie dzieje się z urządzeniem"
+  - function_name: send_email
+    arguments_contain:
+      to: maciek.gastol@gmail.com
+    body_contains:
+    - szczegółowy opis usterki
+    - co dokładnie dzieje się z urządzeniem
+  expected_steps:
+  - 01-extract-serial
+  - 03d-request-serial

@@ -466,6 +466,7 @@ class EmailProcessor:
                 processing_time_ms=processing_time_ms,
                 error_message=None,
                 failed_step=None,
+                step_sequence=[],  # Not using step mode
             )
 
         except Exception as e:
@@ -495,6 +496,7 @@ class EmailProcessor:
                 processing_time_ms=processing_time_ms,
                 error_message=str(e),
                 failed_step=failed_step or "unknown",
+                step_sequence=[],  # No steps on error
             )
 
     async def process_email_with_functions(
@@ -736,6 +738,7 @@ class EmailProcessor:
                 processing_time_ms=processing_time_ms,
                 error_message=None,
                 failed_step=None,
+                step_sequence=[],  # Not using step mode
             )
 
         except Exception as e:
@@ -764,6 +767,7 @@ class EmailProcessor:
                 processing_time_ms=processing_time_ms,
                 error_message=str(e),
                 failed_step=failed_step or "unknown",
+                step_sequence=[],  # No steps on error
             )
 
     async def process_email_with_steps(
@@ -867,6 +871,7 @@ class EmailProcessor:
                     processing_time_ms=processing_time_ms,
                     error_message=None,
                     failed_step=None,
+                    step_sequence=[s.step_name for s in orchestration_result.step_history],
                 )
 
             except ProcessingError:
@@ -903,6 +908,7 @@ class EmailProcessor:
                 processing_time_ms=processing_time_ms,
                 error_message=str(e),
                 failed_step=failed_step or "unknown",
+                step_sequence=[],  # No steps if error occurred
             )
 
 

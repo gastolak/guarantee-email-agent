@@ -28,6 +28,13 @@ expected_output:
   scenario_instruction_used: "valid-warranty"
   processing_time_ms: 60000
 
+  # Expected step sequence for step-based mode (Story 5.1)
+  expected_steps:
+    - "01-extract-serial"
+    - "02-check-warranty"
+    - "03a-valid-warranty"
+    - "05-send-confirmation"
+
   # Function calls expected (in order)
   expected_function_calls:
     # Step 1: Check warranty status

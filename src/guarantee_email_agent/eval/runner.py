@@ -22,6 +22,7 @@ from guarantee_email_agent.eval.mocks import (
     create_mock_function_dispatcher,
 )
 from guarantee_email_agent.eval.validator import validate_function_calls
+from guarantee_email_agent.eval.step_validator import validate_step_sequence
 from guarantee_email_agent.instructions.loader import load_instruction_cached
 from guarantee_email_agent.llm.response_generator import ResponseGenerator
 
@@ -89,6 +90,17 @@ class EvalRunner:
             if mock_dispatcher:
                 actual_function_calls = mock_dispatcher.get_function_calls()
 
+            # Extract actual steps from processing result
+            # For step-based mode, extract step sequence from processing result
+            actual_steps: List[str] = []
+            if "step_sequence" in actual_output:
+                # Full step sequence available from OrchestrationResult
+                actual_steps = actual_output["step_sequence"]
+            elif "scenario_used" in actual_output and actual_output["scenario_used"].startswith("steps:"):
+                # Legacy: extract final step from scenario_used
+                final_step = actual_output["scenario_used"].replace("steps:", "")
+                actual_steps = [final_step] if final_step else []
+
             # Validate output
             passed, failures = self.validate_output(
                 test_case.expected_output,
@@ -96,6 +108,7 @@ class EvalRunner:
                 mocks,
                 processing_time_ms,
                 actual_function_calls,
+                actual_steps,
             )
 
             # Print result immediately
@@ -116,6 +129,7 @@ class EvalRunner:
                 actual_output=actual_output,
                 processing_time_ms=processing_time_ms,
                 actual_function_calls=actual_function_calls,
+                actual_steps=actual_steps,
             )
 
         except Exception as e:
@@ -200,6 +214,11 @@ class EvalRunner:
         if mocks["gmail_tool"].sent_emails:
             response_body = mocks["gmail_tool"].sent_emails[-1].get("body", "")
 
+        # Extract step sequence if available (step mode)
+        step_sequence = []
+        if hasattr(result, 'step_sequence') and result.step_sequence:
+            step_sequence = result.step_sequence
+
         # Return simplified dict for validation
         return {
             "email_sent": result.success and result.response_sent,
@@ -207,6 +226,7 @@ class EvalRunner:
             "ticket_created": result.ticket_id is not None,
             "scenario_used": result.scenario_used or "unknown",
             "processing_time_ms": result.processing_time_ms,
+            "step_sequence": step_sequence,
         }
 
     def _create_minimal_config(self) -> AgentConfig:
@@ -249,6 +269,7 @@ class EvalRunner:
         mocks: Dict[str, Any],
         processing_time_ms: int,
         actual_function_calls: Optional[List[ActualFunctionCall]] = None,
+        actual_steps: Optional[List[str]] = None,
     ) -> Tuple[bool, List[str]]:
         """
         Validate actual output against expected output.
@@ -259,11 +280,21 @@ class EvalRunner:
             mocks: Mock clients with captured data
             processing_time_ms: Actual processing time
             actual_function_calls: Function calls made during execution
+            actual_steps: Step sequence executed (Story 5.1)
 
         Returns:
             Tuple of (passed, list of failure reasons)
         """
         failures = []
+
+        # Validate step sequence if expected (Story 5.1)
+        if expected.expected_steps is not None:
+            step_validation = validate_step_sequence(
+                expected.expected_steps,
+                actual_steps or []
+            )
+            if not step_validation.passed:
+                failures.extend(step_validation.failures)
 
         # Validate function calls if expected
         if expected.expected_function_calls and actual_function_calls is not None:

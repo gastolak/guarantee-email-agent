@@ -1,101 +1,125 @@
 scenario_id: valid_warranty_with_details_001
-description: "Customer provides serial C074AD3D3101 and issue description - device not working, red lights"
+description: Customer provides serial C074AD3D3101 and issue description - device
+  not working, red lights
 category: valid-warranty
-created: "2026-02-02"
-
+created: '2026-02-02'
 input:
   email:
-    subject: "Hej"
-    body: |
-      Ale czego byście chcieli? Urządzenie nie działa jak należy, świecą się czerwone diody
+    subject: Hej
+    body: 'Ale czego byście chcieli? Urządzenie nie działa jak należy, świecą się
+      czerwone diody
+
 
       śr., 15 paź 2025 o 13:01 <maciek.gastol@gmail.com> napisał(a):
+
       Dziękujemy za kontakt.
 
-      Aby móc sprawdzić status gwarancji i podjąć dalsze kroki, potrzebujemy numeru seryjnego Twojego urządzenia.
+
+      Aby móc sprawdzić status gwarancji i podjąć dalsze kroki, potrzebujemy numeru
+      seryjnego Twojego urządzenia.
+
 
       Numer seryjny znajdziesz zazwyczaj na naklejce z tyłu urządzenia lub w dokumentacji.
 
+
       Prosimy o ponowne wysłanie wiadomości z numerem seryjnym.
 
+
       Pozdrawiamy,
+
       Zespół serwisu
 
+
       ACNET sp. z o.o.
+
       ul. Sokołowska 9 lok. U4 01-142 Warszawa
+
       NIP: 525 192 06 57
 
+
       ---------- Received message ---------
+
       mg@acnet.com.pl:
+
 
       ale co tam jaktam Moj serial to: C074AD3D3101
 
+
       ---------- Forwarded message ---------
+
       Od: <maciek.gastol@gmail.com>
+
       Date: wt., 14 paź 2025 o 14:35
+
       Subject: Re: acnet-serwis
+
       To: M G <mg@acnet.com.pl>
+
 
 
       Dziękujemy za kontakt.
 
+
       Niestety, Twój adres e-mail nie został znaleziony w naszej bazie klientów.
+
 
       Prosimy o kontakt telefoniczny w celu weryfikacji danych.
 
 
 
+
       Pozdrawiamy,
+
       Zespół serwisu
 
-      ACNET sp. z o.o.
-      ul. Sokołowska 9 lok. U4 01-142 Warszawa
-      NIP: 525 192 06 57
-    from: "test2@email.com"
-    received: "2025-10-15T13:01:00Z"
 
-  # Mock responses for CRM Abacus API calls
+      ACNET sp. z o.o.
+
+      ul. Sokołowska 9 lok. U4 01-142 Warszawa
+
+      NIP: 525 192 06 57
+
+      '
+    from: test2@email.com
+    received: '2025-10-15T13:01:00Z'
   mock_function_responses:
     check_warranty:
-      status: "valid"
-      warranty_type: "service_contract"
-      expires: "2027-01-15"
-      device_name: "RICOH MP 2555"
-      serial: "C074AD3D3101"
+      status: valid
+      warranty_type: service_contract
+      expires: '2027-01-15'
+      device_name: RICOH MP 2555
+      serial: C074AD3D3101
       klient_id: 789
     create_ticket:
       nowe_zadanie_id: 12345
     send_email:
-      message_id: "msg-abc123"
-      status: "sent"
-
+      message_id: msg-abc123
+      status: sent
 expected_output:
-  scenario_instruction_used: "valid-warranty"
+  scenario_instruction_used: valid-warranty
   processing_time_ms: 60000
-
-  # Function calls expected (in order)
   expected_function_calls:
-    # Step 1: Check warranty status for serial C074AD3D3101
-    - function_name: check_warranty
-      arguments:
-        serial_number: "C074AD3D3101"
-      result_contains:
-        status: "valid"
-
-    # Step 2: Create ticket in CRM Abacus
-    - function_name: create_ticket
-      arguments_contain:
-        subject: "RICOH MP 2555"
-        description: "czerwone diody"
-      result_contains:
-        nowe_zadanie_id: 12345
-
-    # Step 3: Send email response to customer
-    - function_name: send_email
-      arguments_contain:
-        to: "test2@email.com"
-      body_contains:
-        - "C074AD3D3101"
-        - "Aktywna"
-        - "zgłoszenie serwisowe"
-        - "zarejestrowane"
+  - function_name: check_warranty
+    arguments:
+      serial_number: C074AD3D3101
+    result_contains:
+      status: valid
+  - function_name: create_ticket
+    arguments_contain:
+      subject: RICOH MP 2555
+      description: czerwone diody
+    result_contains:
+      nowe_zadanie_id: 12345
+  - function_name: send_email
+    arguments_contain:
+      to: test2@email.com
+    body_contains:
+    - C074AD3D3101
+    - Aktywna
+    - zgłoszenie serwisowe
+    - zarejestrowane
+  expected_steps:
+  - 01-extract-serial
+  - 02-check-warranty
+  - 03a-valid-warranty
+  - 05-send-confirmation

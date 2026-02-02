@@ -38,6 +38,14 @@ instructions:
     - "./instructions/scenarios/step-04-out-of-scope.md"
     - "./instructions/scenarios/step-05-send-confirmation.md"
 
+# Agent Runtime Configuration
+# Story 5.1: Step-by-step state machine architecture
+agent:
+  polling_interval_seconds: 60
+  shutdown_timeout_seconds: 30
+  max_consecutive_errors: 10
+  use_step_orchestrator: true  # Use step-by-step state machine (vs monolithic scenarios)
+
 # Logging Configuration
 # NFR14: Customer email body logged ONLY at DEBUG level
 # NFR16: Logs to stdout only (stateless, no file handlers)

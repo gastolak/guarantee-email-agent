@@ -1,30 +1,28 @@
 scenario_id: missing_serial_001
-description: "Customer requests repair but provides no serial number"
+description: Customer requests repair but provides no serial number
 category: missing-info
-created: "2026-02-02"
-
+created: '2026-02-02'
 input:
   email:
-    subject: "Hej"
-    body: "Naprawcie mi sprzęt wreszcie!"
-    from: "test2@email.com"
-    received: "2025-10-15T15:00:00Z"
-
+    subject: Hej
+    body: Naprawcie mi sprzęt wreszcie!
+    from: test2@email.com
+    received: '2025-10-15T15:00:00Z'
   mock_function_responses:
     send_email:
-      message_id: "msg-abc127"
-      status: "sent"
-
+      message_id: msg-abc127
+      status: sent
 expected_output:
-  scenario_instruction_used: "missing-info"
+  scenario_instruction_used: missing-info
   processing_time_ms: 60000
-
   expected_function_calls:
-    # Only send email requesting serial number
-    - function_name: send_email
-      arguments_contain:
-        to: "test2@email.com"
-      body_contains:
-        - "numer seryjny"
-        - "naklejce znamionowej"
-        - "tyłu lub na spodzie urządzenia"
+  - function_name: send_email
+    arguments_contain:
+      to: test2@email.com
+    body_contains:
+    - numer seryjny
+    - naklejce znamionowej
+    - tyłu lub na spodzie urządzenia
+  expected_steps:
+  - 01-extract-serial
+  - 03d-request-serial

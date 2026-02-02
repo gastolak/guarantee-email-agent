@@ -1,7 +1,7 @@
 """Data models for email processing pipeline."""
 
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, List
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,7 @@ class ProcessingResult:
         processing_time_ms: Total processing time in milliseconds
         error_message: Error message if processing failed (None if successful)
         failed_step: Step where processing failed (None if successful)
+        step_sequence: Sequence of steps executed in step-based mode (Story 5.1)
     """
 
     success: bool
@@ -72,6 +73,7 @@ class ProcessingResult:
     processing_time_ms: int
     error_message: Optional[str]
     failed_step: Optional[str]
+    step_sequence: List[str] = field(default_factory=list)
 
     def is_successful(self) -> bool:
         """Check if processing completed successfully.

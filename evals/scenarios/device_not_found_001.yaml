@@ -1,44 +1,42 @@
 scenario_id: device_not_found_001
-description: "Customer provides invalid serial 'asdfadsf' - device not found in CRM"
+description: Customer provides invalid serial 'asdfadsf' - device not found in CRM
 category: invalid-warranty
-created: "2026-02-02"
-
+created: '2026-02-02'
 input:
   email:
-    subject: "Hej"
-    body: "Naprawcie please mi sprzęt o numerze seryjnym: asdfadsf"
-    from: "test2@email.com"
-    received: "2025-10-15T16:00:00Z"
-
+    subject: Hej
+    body: 'Naprawcie please mi sprzęt o numerze seryjnym: asdfadsf'
+    from: test2@email.com
+    received: '2025-10-15T16:00:00Z'
   mock_function_responses:
     check_warranty:
-      status: "not_found"
+      status: not_found
       warranty_type: null
       expires: null
       device_name: null
-      serial: "asdfadsf"
+      serial: asdfadsf
       klient_id: null
     send_email:
-      message_id: "msg-abc129"
-      status: "sent"
-
+      message_id: msg-abc129
+      status: sent
 expected_output:
-  scenario_instruction_used: "invalid-warranty"
+  scenario_instruction_used: invalid-warranty
   processing_time_ms: 60000
-
   expected_function_calls:
-    # Check warranty - returns not_found
-    - function_name: check_warranty
-      arguments:
-        serial_number: "asdfadsf"
-      result_contains:
-        status: "not_found"
-
-    # Send email explaining device not found
-    - function_name: send_email
-      arguments_contain:
-        to: "test2@email.com"
-      body_contains:
-        - "asdfadsf"
-        - "nie odnaleźliśmy"
-        - "głównej tabliczki znamionowej"
+  - function_name: check_warranty
+    arguments:
+      serial_number: asdfadsf
+    result_contains:
+      status: not_found
+  - function_name: send_email
+    arguments_contain:
+      to: test2@email.com
+    body_contains:
+    - asdfadsf
+    - nie odnaleźliśmy
+    - głównej tabliczki znamionowej
+  expected_steps:
+  - 01-extract-serial
+  - 02-check-warranty
+  - 03b-device-not-found
+  - 05-send-confirmation
