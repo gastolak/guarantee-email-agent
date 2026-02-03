@@ -32,6 +32,7 @@ from guarantee_email_agent.email.processor_models import (
 from guarantee_email_agent.email.scenario_detector import ScenarioDetector
 from guarantee_email_agent.email.serial_extractor import SerialNumberExtractor
 from guarantee_email_agent.instructions.loader import load_instruction
+from guarantee_email_agent.logging.supabase_logger import SupabaseLogger
 from guarantee_email_agent.tools import GmailTool, CrmAbacusTool
 from guarantee_email_agent.llm.response_generator import ResponseGenerator
 from guarantee_email_agent.llm.function_dispatcher import FunctionDispatcher
@@ -82,10 +83,21 @@ class EmailProcessor:
         self.crm_abacus_tool = crm_abacus_tool
         self.response_generator = response_generator
 
+        # Initialize Supabase logger (Story 5.3)
+        self.supabase_logger = SupabaseLogger(
+            supabase_url=config.secrets.supabase_url,
+            supabase_key=config.secrets.supabase_key,
+            retention_days=config.supabase.retention_days,
+            store_full_prompts=config.supabase.store_full_prompts,
+            logging_required=config.supabase.logging_required,
+            agent_version="1.0.0"  # TODO: Get from package metadata
+        )
+
         # Create function dispatcher for LLM function calling
         self.function_dispatcher = FunctionDispatcher(
             gmail_tool=gmail_tool,
-            crm_abacus_tool=crm_abacus_tool
+            crm_abacus_tool=crm_abacus_tool,
+            supabase_logger=self.supabase_logger  # Pass logger to dispatcher
         )
 
         # Create step orchestrator for step-by-step workflow (Story 5.1)
@@ -96,12 +108,16 @@ class EmailProcessor:
         self.step_orchestrator = StepOrchestrator(
             config=config,
             main_instruction_body=main_instruction.body,
-            response_generator=response_generator
+            response_generator=response_generator,
+            supabase_logger=self.supabase_logger  # Pass logger to orchestrator
         )
 
         logger.info(
             "Email processor initialized",
-            extra={"use_step_orchestrator": config.agent.use_step_orchestrator}
+            extra={
+                "use_step_orchestrator": config.agent.use_step_orchestrator,
+                "supabase_logging_enabled": self.supabase_logger.enabled
+            }
         )
 
     async def process_email(self, raw_email: Dict[str, Any]) -> ProcessingResult:

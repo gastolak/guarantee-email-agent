@@ -86,3 +86,12 @@ tools:
 
     # Feature flag name for disabling AI agent responses
     agent_disable_feature_name: "Wyłącz agenta AI"
+
+# Supabase Observability (Story 5.3)
+# Activity logging with PII compliance and data retention
+supabase:
+  logging_enabled: true  # Enable Supabase telemetry (auto-detects from env vars)
+  retention_days: 30  # Auto-delete logs older than 30 days (GDPR compliance)
+  store_full_prompts: false  # Store full LLM prompts only for failures (saves storage)
+  logging_required: false  # If true, agent crashes when Supabase unavailable (graceful degradation by default)
+  # Credentials: SUPABASE_URL and SUPABASE_KEY from environment

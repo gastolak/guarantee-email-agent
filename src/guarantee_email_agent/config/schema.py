@@ -96,6 +96,20 @@ class SecretsConfig:
     gmail_oauth_token: str = ""  # Gmail OAuth2 token
     crm_abacus_username: str = ""  # CRM Abacus username for token acquisition
     crm_abacus_password: str = ""  # CRM Abacus password for token acquisition
+    supabase_url: Optional[str] = None  # Supabase project URL (optional)
+    supabase_key: Optional[str] = None  # Supabase anon key (optional)
+
+
+@dataclass(frozen=True)
+class SupabaseLoggingConfig:
+    """Supabase telemetry logging configuration.
+
+    Story 5.3: Activity logging with PII compliance and data retention.
+    """
+    logging_enabled: bool = True  # Enable/disable Supabase logging (default: auto-detect from env vars)
+    retention_days: int = 30  # Auto-delete logs older than N days (GDPR compliance)
+    store_full_prompts: bool = False  # Store full LLM prompts for success (default: failures only)
+    logging_required: bool = False  # Crash agent if Supabase unavailable (default: graceful degradation)
 
 
 @dataclass(frozen=True)
@@ -119,10 +133,13 @@ class AgentConfig:
     secrets: SecretsConfig
     llm: LLMConfig = None  # Optional, defaults will be used
     agent: AgentRuntimeConfig = None  # Optional, defaults will be used
+    supabase: SupabaseLoggingConfig = None  # Optional, defaults will be used
 
     def __post_init__(self):
-        """Ensure agent and llm configs exist with defaults."""
+        """Ensure agent, llm, and supabase configs exist with defaults."""
         if self.agent is None:
             object.__setattr__(self, 'agent', AgentRuntimeConfig())
         if self.llm is None:
             object.__setattr__(self, 'llm', LLMConfig())
+        if self.supabase is None:
+            object.__setattr__(self, 'supabase', SupabaseLoggingConfig())

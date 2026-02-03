@@ -14,7 +14,8 @@ from guarantee_email_agent.config.schema import (
     EvalConfig,
     LLMConfig,
     LoggingConfig,
-    SecretsConfig
+    SecretsConfig,
+    SupabaseLoggingConfig
 )
 from guarantee_email_agent.utils.errors import ConfigurationError
 
@@ -44,12 +45,18 @@ def load_secrets() -> SecretsConfig:
     warranty_key = os.getenv("CRM_ABACUS_USERNAME", "").strip()
     ticketing_key = os.getenv("CRM_ABACUS_PASSWORD", "").strip()
 
+    # Supabase credentials (optional for telemetry logging)
+    supabase_url = os.getenv("SUPABASE_URL", "").strip() or None
+    supabase_key = os.getenv("SUPABASE_KEY", "").strip() or None
+
     return SecretsConfig(
         anthropic_api_key=anthropic_key,
         gemini_api_key=gemini_key,
         gmail_oauth_token=gmail_key,
         crm_abacus_username=warranty_key,
-        crm_abacus_password=ticketing_key
+        crm_abacus_password=ticketing_key,
+        supabase_url=supabase_url,
+        supabase_key=supabase_key
     )
 
 
@@ -186,6 +193,18 @@ def load_config(config_path: str = None) -> AgentConfig:
                     details={"field": "agent", "error": str(e)}
                 )
 
+        # Parse Supabase logging config (optional, uses defaults if not present)
+        supabase_config = None
+        if 'supabase' in raw_config:
+            try:
+                supabase_config = SupabaseLoggingConfig(**raw_config['supabase'])
+            except TypeError as e:
+                raise ConfigurationError(
+                    message=f"Invalid supabase config: {e}",
+                    code="config_invalid_type",
+                    details={"field": "supabase", "error": str(e)}
+                )
+
         return AgentConfig(
             tools=tools_config,
             instructions=instructions_config,
@@ -193,7 +212,8 @@ def load_config(config_path: str = None) -> AgentConfig:
             logging=logging_config,
             secrets=secrets,
             llm=llm_config,
-            agent=agent_config
+            agent=agent_config,
+            supabase=supabase_config
         )
     except TypeError as e:
         raise ConfigurationError(
