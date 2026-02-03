@@ -39,11 +39,24 @@ def create_email_processor(config: AgentConfig) -> EmailProcessor:
     detector = ScenarioDetector(config, main_instruction.body)
 
     # Initialize tools
-    gmail_tool = GmailTool(config.tools.gmail, config.secrets.gmail_oauth_token)
+    gmail_tool = GmailTool(
+        api_endpoint=config.tools.gmail.api_endpoint,
+        oauth_token=config.secrets.gmail_oauth_token,
+        timeout=config.tools.gmail.timeout_seconds
+    )
     crm_abacus_tool = CrmAbacusTool(
-        config=config.tools.crm_abacus,
+        base_url=config.tools.crm_abacus.base_url,
         username=config.secrets.crm_abacus_username,
-        password=config.secrets.crm_abacus_password
+        password=config.secrets.crm_abacus_password,
+        token_endpoint=config.tools.crm_abacus.token_endpoint,
+        warranty_endpoint=config.tools.crm_abacus.warranty_endpoint,
+        ticketing_endpoint=config.tools.crm_abacus.ticketing_endpoint,
+        ticket_info_endpoint=config.tools.crm_abacus.ticket_info_endpoint,
+        task_info_endpoint=config.tools.crm_abacus.task_info_endpoint,
+        task_feature_check_endpoint=config.tools.crm_abacus.task_feature_check_endpoint,
+        ticket_defaults=config.tools.crm_abacus.ticket_defaults,
+        agent_disable_feature_name=config.tools.crm_abacus.agent_disable_feature_name,
+        timeout=config.tools.crm_abacus.timeout_seconds
     )
 
     # Initialize response generator
