@@ -193,7 +193,7 @@ class FunctionDispatcher:
         """Execute send_email function.
 
         Args:
-            arguments: Must contain 'to', 'subject', 'body'; optional 'thread_id'
+            arguments: Must contain 'to', 'subject', 'body'; optional 'thread_id', 'in_reply_to_message_id'
 
         Returns:
             Email send result with message_id and status
@@ -208,6 +208,7 @@ class FunctionDispatcher:
         subject = arguments.get("subject")
         body = arguments.get("body")
         thread_id = arguments.get("thread_id")
+        in_reply_to_message_id = arguments.get("in_reply_to_message_id")
 
         if not to:
             raise ValueError("Missing required argument: to")
@@ -220,7 +221,8 @@ class FunctionDispatcher:
             to=to,
             subject=subject,
             body=body,
-            thread_id=thread_id
+            thread_id=thread_id,
+            in_reply_to_message_id=in_reply_to_message_id
         )
 
         return {

@@ -96,7 +96,8 @@ class GmailTool:
         to: str,
         subject: str,
         body: str,
-        thread_id: str = None
+        thread_id: str = None,
+        in_reply_to_message_id: str = None
     ) -> str:
         """Send email via Gmail API.
 
@@ -104,7 +105,8 @@ class GmailTool:
             to: Recipient email address
             subject: Email subject
             body: Email body (plain text)
-            thread_id: Optional thread ID for replies
+            thread_id: Optional thread ID for threading replies
+            in_reply_to_message_id: Optional message ID to reply to (adds In-Reply-To header)
 
         Returns:
             Message ID of sent email
@@ -115,7 +117,7 @@ class GmailTool:
         try:
                 logger.info(
                     "Sending email",
-                    extra={"tool": "gmail", "operation": "send_email", "to": to, "subject": subject}
+                    extra={"tool": "gmail", "operation": "send_email", "to": to, "subject": subject, "thread_id": thread_id}
                 )
 
                 # Build RFC 2822 message
@@ -125,6 +127,11 @@ class GmailTool:
                 message = MIMEText(body)
                 message["to"] = to
                 message["subject"] = subject
+
+                # Add reply headers for proper threading
+                if in_reply_to_message_id:
+                    message["In-Reply-To"] = f"<{in_reply_to_message_id}>"
+                    message["References"] = f"<{in_reply_to_message_id}>"
 
                 # Encode in base64url format
                 encoded_message = base64.urlsafe_b64encode(

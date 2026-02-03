@@ -17,6 +17,12 @@ available_functions:
         body:
           type: string
           description: Email body content (can include Polish text)
+        thread_id:
+          type: string
+          description: Optional Gmail thread ID for threading replies in same conversation
+        in_reply_to_message_id:
+          type: string
+          description: Optional message ID to reply to (adds In-Reply-To header for proper email threading)
       required: [to, subject, body]
 ---
 
@@ -28,6 +34,8 @@ available_functions:
   <current_context>
     <variable name="customer_email">{{EXTRACT_FROM_CONTEXT}}</variable>
     <variable name="original_subject">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <variable name="thread_id">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <variable name="message_id">{{EXTRACT_FROM_CONTEXT}}</variable>
   </current_context>
 
   <task>
@@ -61,6 +69,14 @@ Po otrzymaniu numeru seryjnego niezwłocznie sprawdzimy status gwarancji.
 Pozdrawiamy,
 Dział Serwisu
       </template>
+    </argument>
+    <argument name="thread_id">
+      <source>context.thread_id</source>
+      <note>Thread in the same Gmail conversation</note>
+    </argument>
+    <argument name="in_reply_to_message_id">
+      <source>context.message_id</source>
+      <note>Reply to the original customer email</note>
     </argument>
   </function_arguments>
 

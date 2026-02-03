@@ -660,28 +660,34 @@ class ResponseGenerator:
                 if expiry:
                     message_parts.append(f"Expiration Date: {expiry}")
 
-        # Step 3d: request-serial - needs customer email and original subject
+        # Step 3d: request-serial - needs customer email, original subject, thread/message IDs for reply
         elif step_name == "request-serial":
             message_parts = [
                 f"Customer Email: {context.from_address}",
-                f"Original Subject: {context.email_subject}"
+                f"Original Subject: {context.email_subject}",
+                f"Thread ID: {context.thread_id}" if context.thread_id else "Thread ID: None",
+                f"Message ID: {context.message_id}" if context.message_id else "Message ID: None"
             ]
 
-        # Step 4: out-of-scope - needs customer email and original subject
+        # Step 4: out-of-scope - needs customer email, original subject, thread/message IDs for reply
         elif step_name == "out-of-scope":
             message_parts = [
                 f"Customer Email: {context.from_address}",
-                f"Original Subject: {context.email_subject}"
+                f"Original Subject: {context.email_subject}",
+                f"Thread ID: {context.thread_id}" if context.thread_id else "Thread ID: None",
+                f"Message ID: {context.message_id}" if context.message_id else "Message ID: None"
             ]
 
-        # Step 5: send-confirmation - needs email, serial, ticket_id, warranty expiry, original subject, and email body
+        # Step 5: send-confirmation - needs email, serial, ticket_id, warranty expiry, original subject, email body, and thread/message IDs
         elif step_name == "send-confirmation":
             message_parts = [
                 f"Customer Email: {context.from_address}",
                 f"Serial Number: {context.serial_number}",
                 f"Ticket ID: {context.ticket_id}",
                 f"Original Subject: {context.email_subject}",
-                f"Original Email Body: {context.email_body}"
+                f"Original Email Body: {context.email_body}",
+                f"Thread ID: {context.thread_id}" if context.thread_id else "Thread ID: None",
+                f"Message ID: {context.message_id}" if context.message_id else "Message ID: None"
             ]
             if context.warranty_data:
                 expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
@@ -736,11 +742,13 @@ Dział Serwisu"""
                 f"Agent Response Body: {agent_response}"
             ]
 
-        # Step 8a: escalate-customer-ack - needs customer email and original subject
+        # Step 8a: escalate-customer-ack - needs customer email, original subject, and thread/message IDs
         elif step_name == "escalate-customer-ack":
             message_parts = [
                 f"Customer Email: {context.from_address}",
-                f"Original Subject: {context.email_subject}"
+                f"Original Subject: {context.email_subject}",
+                f"Thread ID: {context.thread_id}" if context.thread_id else "Thread ID: None",
+                f"Message ID: {context.message_id}" if context.message_id else "Message ID: None"
             ]
 
         # Step 8b: escalate-supervisor-alert - needs supervisor email, customer context, escalation reason
