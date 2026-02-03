@@ -51,6 +51,7 @@ class StepOrchestrator:
         config: AgentConfig,
         main_instruction_body: str,
         response_generator: Optional["ResponseGenerator"] = None,
+        supabase_logger: Optional["SupabaseLogger"] = None,
         max_steps: int = 10
     ):
         """Initialize step orchestrator.
@@ -59,22 +60,29 @@ class StepOrchestrator:
             config: Agent configuration
             main_instruction_body: Main instruction content for LLM
             response_generator: Optional ResponseGenerator for LLM calls (for testing, can be None)
+            supabase_logger: Optional SupabaseLogger for telemetry (Story 5.3)
             max_steps: Maximum steps per email (circuit breaker)
         """
         self.config = config
         self.main_instruction_body = main_instruction_body
         self.response_generator = response_generator
+        self.supabase_logger = supabase_logger
         self.max_steps = max_steps
 
         logger.info(
             "StepOrchestrator initialized",
-            extra={"max_steps": max_steps, "has_response_generator": response_generator is not None}
+            extra={
+                "max_steps": max_steps,
+                "has_response_generator": response_generator is not None,
+                "supabase_logging_enabled": supabase_logger.enabled if supabase_logger else False
+            }
         )
 
     async def orchestrate(
         self,
         email: EmailMessage,
-        initial_step: str = "01-extract-serial"
+        initial_step: str = "01-extract-serial",
+        session_id: Optional[str] = None
     ) -> OrchestrationResult:
         """Orchestrate step-by-step workflow for email processing.
 
@@ -88,6 +96,7 @@ class StepOrchestrator:
         Args:
             email: Email message to process
             initial_step: Starting step name (default: 01-extract-serial)
+            session_id: Supabase session ID for telemetry (Story 5.3)
 
         Returns:
             OrchestrationResult with step history and final context
@@ -99,7 +108,8 @@ class StepOrchestrator:
         context = StepContext(
             email_subject=email.subject,
             email_body=email.body,
-            from_address=email.from_address
+            from_address=email.from_address,
+            session_id=session_id  # Pass session_id for telemetry
         )
 
         # Track step execution
@@ -141,8 +151,40 @@ class StepOrchestrator:
                 }
             )
 
+            # Story 5.3: Log step start
+            import time
+            step_start_time = time.time()
+            execution_id = None
+            if self.supabase_logger:
+                execution_id = await self.supabase_logger.log_step_start(
+                    session_id=context.session_id,
+                    step_number=step_count,
+                    step_name=current_step,
+                    input_context={
+                        "serial_number": context.serial_number,
+                        "ticket_id": context.ticket_id,
+                        "from_address": context.from_address
+                    }
+                )
+
             # Execute current step
             step_result = await self.execute_step(current_step, context)
+
+            # Story 5.3: Log step completion
+            step_duration_ms = int((time.time() - step_start_time) * 1000)
+            if self.supabase_logger and execution_id:
+                await self.supabase_logger.log_step_complete(
+                    execution_id=execution_id,
+                    llm_prompt=None,  # TODO: Capture from response_generator
+                    llm_response=step_result.response_text,
+                    llm_token_count=None,  # TODO: Capture from response_generator
+                    parsed_output=step_result.metadata,
+                    next_step=step_result.next_step,
+                    routing_reason=step_result.metadata.get("routing_reason"),
+                    duration_ms=step_duration_ms,
+                    status="success",
+                    error_message=None
+                )
 
             # Record step execution
             step_history.append(step_result)

@@ -28,29 +28,35 @@ class FunctionDispatcher:
     def __init__(
         self,
         gmail_tool: Optional[GmailTool] = None,
-        crm_abacus_tool: Optional[CrmAbacusTool] = None
+        crm_abacus_tool: Optional[CrmAbacusTool] = None,
+        supabase_logger: Optional["SupabaseLogger"] = None
     ):
         """Initialize FunctionDispatcher with tool instances.
 
         Args:
             gmail_tool: Gmail tool for email operations
             crm_abacus_tool: CRM Abacus tool for warranty and ticketing
+            supabase_logger: Optional SupabaseLogger for telemetry (Story 5.3)
         """
         self._gmail_tool = gmail_tool
         self._crm_abacus_tool = crm_abacus_tool
+        self.supabase_logger = supabase_logger
 
         logger.info(
             "FunctionDispatcher initialized",
             extra={
                 "has_gmail_tool": gmail_tool is not None,
-                "has_crm_abacus_tool": crm_abacus_tool is not None
+                "has_crm_abacus_tool": crm_abacus_tool is not None,
+                "supabase_logging_enabled": supabase_logger.enabled if supabase_logger else False
             }
         )
 
     async def execute(
         self,
         function_name: str,
-        arguments: Dict[str, Any]
+        arguments: Dict[str, Any],
+        session_id: Optional[str] = None,
+        execution_id: Optional[str] = None
     ) -> FunctionCall:
         """Execute a function call and return the result.
 
@@ -60,6 +66,8 @@ class FunctionDispatcher:
         Args:
             function_name: Name of function to call
             arguments: Function arguments as dictionary
+            session_id: Supabase session ID for telemetry (Story 5.3)
+            execution_id: Supabase execution ID for telemetry (Story 5.3)
 
         Returns:
             FunctionCall with result and execution metadata
@@ -68,6 +76,16 @@ class FunctionDispatcher:
             ValueError: If function_name is unknown
         """
         start_time = time.time()
+
+        # Story 5.3: Log function call start
+        call_id = None
+        if self.supabase_logger and session_id and execution_id:
+            call_id = await self.supabase_logger.log_function_call_start(
+                execution_id=execution_id,
+                session_id=session_id,
+                function_name=function_name,
+                function_args=arguments
+            )
 
         logger.info(
             "Executing function",
@@ -100,6 +118,17 @@ class FunctionDispatcher:
                 }
             )
 
+            # Story 5.3: Log function call completion (success)
+            if self.supabase_logger and call_id:
+                await self.supabase_logger.log_function_call_complete(
+                    call_id=call_id,
+                    function_response=result if isinstance(result, dict) else {"result": str(result)},
+                    duration_ms=execution_time_ms,
+                    status="success",
+                    error_message=None,
+                    retry_count=0  # TODO: Track retries from tenacity
+                )
+
             return FunctionCall(
                 function_name=function_name,
                 arguments=arguments,
@@ -120,6 +149,17 @@ class FunctionDispatcher:
                 },
                 exc_info=True
             )
+
+            # Story 5.3: Log function call completion (failure)
+            if self.supabase_logger and call_id:
+                await self.supabase_logger.log_function_call_complete(
+                    call_id=call_id,
+                    function_response=None,
+                    duration_ms=execution_time_ms,
+                    status="failed",
+                    error_message=str(e),
+                    retry_count=0  # TODO: Track retries from tenacity
+                )
 
             return FunctionCall(
                 function_name=function_name,

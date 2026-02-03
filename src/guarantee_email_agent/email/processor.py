@@ -815,11 +815,24 @@ class EmailProcessor:
         ticket_created = False
         ticket_id = None
         failed_step = None
+        session_id = None  # Supabase session ID
 
         try:
             # Step 1: Parse email
             logger.info(f"Step 1/2: Parsing email: {email_id}")
             email = self.parser.parse_email(raw_email)
+
+            # Story 5.3: Log email session start
+            from datetime import datetime
+            session_id = await self.supabase_logger.log_email_session_start(
+                email_id=email_id,
+                from_address=email.from_address,
+                email_subject=email.subject,
+                email_body=email.body,
+                received_at=datetime.now(),  # TODO: Get from email metadata
+                model_provider=self.config.llm.provider,
+                model_name=self.config.llm.model
+            )
 
             logger.info(
                 f"Email parsed: {email.subject}",
@@ -836,7 +849,8 @@ class EmailProcessor:
             try:
                 orchestration_result = await self.step_orchestrator.orchestrate(
                     email=email,
-                    initial_step="extract-serial"
+                    initial_step="extract-serial",
+                    session_id=session_id  # Pass session_id for step logging
                 )
 
                 # Extract results from final context
@@ -873,6 +887,20 @@ class EmailProcessor:
                         "response_sent": response_sent,
                         "ticket_created": ticket_created
                     }
+                )
+
+                # Story 5.3: Log email session completion (success)
+                await self.supabase_logger.log_email_session_complete(
+                    session_id=session_id,
+                    status="completed",
+                    outcome="ticket_created" if ticket_created else "processed",
+                    ticket_id=ticket_id,
+                    serial_number=serial_number,
+                    issue_category=None,  # TODO: Classify from outcome
+                    total_steps=orchestration_result.total_steps,
+                    step_sequence=[s.step_name for s in orchestration_result.step_history],
+                    total_duration_ms=processing_time_ms,
+                    error_message=None
                 )
 
                 # Task 7: Mark email as read after successful processing
@@ -913,6 +941,20 @@ class EmailProcessor:
 
         except Exception as e:
             processing_time_ms = int((time.time() - start_time) * 1000)
+
+            # Story 5.3: Log email session completion (failure)
+            await self.supabase_logger.log_email_session_complete(
+                session_id=session_id,
+                status="failed",
+                outcome=None,
+                ticket_id=ticket_id,
+                serial_number=serial_number,
+                issue_category=None,
+                total_steps=0,  # Failed before steps completed
+                step_sequence=[],
+                total_duration_ms=processing_time_ms,
+                error_message=str(e)
+            )
 
             logger.error(
                 f"Email processing failed: {str(e)}",

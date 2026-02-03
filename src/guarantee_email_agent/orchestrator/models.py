@@ -17,6 +17,7 @@ class StepContext:
         ticket_id: Created ticket ID (None until ticket created)
         function_calls: List of all function calls made during workflow
         metadata: Additional context data
+        session_id: Supabase session ID for telemetry (Story 5.3)
     """
     email_subject: str
     email_body: str
@@ -26,6 +27,7 @@ class StepContext:
     ticket_id: Optional[str] = None
     function_calls: List[Any] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    session_id: Optional[str] = None  # Supabase session ID (Story 5.3)
 
 
 @dataclass
