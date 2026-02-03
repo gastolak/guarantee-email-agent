@@ -35,26 +35,44 @@ class EmailParser:
             EmailParseError: If email cannot be parsed (missing required fields)
         """
         try:
-            # Extract required fields
-            subject = raw_email.get('subject', '(No Subject)')
-            from_address = raw_email['from']  # Required - will raise KeyError if missing
+            # Check if this is Gmail API format or pre-parsed format
+            if 'payload' in raw_email:
+                # Gmail API format - extract from payload.headers
+                headers = {h['name'].lower(): h['value'] for h in raw_email['payload'].get('headers', [])}
+                subject = headers.get('subject', '(No Subject)')
+                from_address = headers.get('from')
+                if not from_address:
+                    raise KeyError("'from'")
 
-            # Extract timestamp (use current time if not provided)
-            received = raw_email.get('received', datetime.now())
+                # Extract timestamp from internalDate (milliseconds since epoch)
+                internal_date_ms = raw_email.get('internalDate')
+                if internal_date_ms:
+                    received = datetime.fromtimestamp(int(internal_date_ms) / 1000)
+                else:
+                    received = datetime.now()
 
-            # Extract body (prefer text_body, fall back to body)
-            body = raw_email.get('text_body') or raw_email.get('body', '')
+                # Extract body from payload
+                body = self._extract_gmail_body(raw_email['payload'])
 
-            # Handle HTML emails (convert to plain text)
-            content_type = raw_email.get('content_type', '')
-            if content_type.startswith('text/html') and body:
-                body = self._html_to_text(body)
+                # Use Gmail message ID and thread ID
+                message_id = raw_email.get('id')
+                thread_id = raw_email.get('threadId')
+            else:
+                # Pre-parsed format (eval/test mode)
+                subject = raw_email.get('subject', '(No Subject)')
+                from_address = raw_email['from']  # Required - will raise KeyError if missing
 
-            # Extract optional fields
-            thread_id = raw_email.get('thread_id')
-            message_id = raw_email.get('message_id')
+                # Extract timestamp (use current time if not provided)
+                received = raw_email.get('received', datetime.now())
 
-            # Parse timestamp to datetime if it's a string
+                # Extract body (prefer text_body, fall back to body)
+                body = raw_email.get('text_body') or raw_email.get('body', '')
+
+                # Extract optional fields
+                thread_id = raw_email.get('thread_id')
+                message_id = raw_email.get('message_id')
+
+            # Parse timestamp to datetime if it's a string (for eval mode)
             if isinstance(received, str):
                 received_timestamp = datetime.fromisoformat(received)
             else:
@@ -110,6 +128,40 @@ class EmailParser:
                 code="email_parse_failed",
                 details={"error": str(e)}
             )
+
+    def _extract_gmail_body(self, payload: Dict[str, Any]) -> str:
+        """Extract email body from Gmail API payload.
+
+        Gmail API nests body in parts with different mimeTypes.
+        Prefer text/plain, fall back to text/html, decode base64.
+
+        Args:
+            payload: Gmail message payload
+
+        Returns:
+            Decoded email body text
+        """
+        import base64
+
+        # Check if body is directly in payload
+        if 'body' in payload and payload['body'].get('data'):
+            return base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='ignore')
+
+        # Check parts for multipart messages
+        if 'parts' in payload:
+            for part in payload['parts']:
+                mime_type = part.get('mimeType', '')
+                if mime_type == 'text/plain' and part.get('body', {}).get('data'):
+                    return base64.urlsafe_b64decode(part['body']['data']).decode('utf-8', errors='ignore')
+
+            # Fall back to text/html if no plain text
+            for part in payload['parts']:
+                mime_type = part.get('mimeType', '')
+                if mime_type == 'text/html' and part.get('body', {}).get('data'):
+                    html_body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8', errors='ignore')
+                    return self._html_to_text(html_body)
+
+        return ''
 
     def _html_to_text(self, html: str) -> str:
         """Convert HTML email body to plain text.

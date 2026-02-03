@@ -92,11 +92,20 @@ class ResponseGenerator:
 
             try:
                 crm_tool = CrmAbacusTool(
-                    config=self.config.tools.crm_abacus,
+                    base_url=self.config.tools.crm_abacus.base_url,
                     username=self.config.secrets.crm_abacus_username,
-                    password=self.config.secrets.crm_abacus_password
+                    password=self.config.secrets.crm_abacus_password,
+                    token_endpoint=self.config.tools.crm_abacus.token_endpoint,
+                    warranty_endpoint=self.config.tools.crm_abacus.warranty_endpoint,
+                    ticketing_endpoint=self.config.tools.crm_abacus.ticketing_endpoint,
+                    ticket_info_endpoint=self.config.tools.crm_abacus.ticket_info_endpoint,
+                    task_info_endpoint=self.config.tools.crm_abacus.task_info_endpoint,
+                    task_feature_check_endpoint=self.config.tools.crm_abacus.task_feature_check_endpoint,
+                    ticket_defaults=self.config.tools.crm_abacus.ticket_defaults,
+                    agent_disable_feature_name=self.config.tools.crm_abacus.agent_disable_feature_name,
+                    timeout=self.config.tools.crm_abacus.timeout_seconds
                 )
-                self._function_dispatcher = FunctionDispatcher(crm_tool=crm_tool)
+                self._function_dispatcher = FunctionDispatcher(crm_abacus_tool=crm_tool)
                 logger.info("Function dispatcher created")
             except Exception as e:
                 raise LLMError(

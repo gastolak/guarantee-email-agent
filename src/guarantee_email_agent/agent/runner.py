@@ -143,11 +143,21 @@ class AgentRunner:
 
         # Process emails concurrently
         tasks = [
-            self.processor.process_email(email)
+            self.processor.process_email_with_functions(email)
             for email in emails
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Log any exceptions that occurred
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                email_id = emails[i].get("id", "unknown")
+                logger.error(
+                    f"Email processing raised exception: {type(result).__name__}: {result}",
+                    extra={"email_id": email_id},
+                    exc_info=result
+                )
 
         # Count successes and failures
         success_count = sum(
