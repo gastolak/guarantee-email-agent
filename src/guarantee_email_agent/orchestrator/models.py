@@ -15,6 +15,8 @@ class StepContext:
         serial_number: Extracted serial number (None if not found)
         warranty_data: Warranty check response data
         ticket_id: Created ticket ID (None until ticket created)
+        thread_id: Gmail thread ID for threading replies
+        message_id: Original email message ID for In-Reply-To header
         function_calls: List of all function calls made during workflow
         metadata: Additional context data
     """
@@ -24,6 +26,8 @@ class StepContext:
     serial_number: Optional[str] = None
     warranty_data: Optional[Dict[str, Any]] = None
     ticket_id: Optional[str] = None
+    thread_id: Optional[str] = None
+    message_id: Optional[str] = None
     function_calls: List[Any] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 

@@ -99,7 +99,9 @@ class StepOrchestrator:
         context = StepContext(
             email_subject=email.subject,
             email_body=email.body,
-            from_address=email.from_address
+            from_address=email.from_address,
+            thread_id=email.thread_id,
+            message_id=email.message_id
         )
 
         # Track step execution
