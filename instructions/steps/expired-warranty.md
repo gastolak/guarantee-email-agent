@@ -70,8 +70,12 @@ Niestety gwarancja producenta już nie obowiązuje. Oferujemy jednak płatną na
 
 Jeśli jest Państwo zainteresowani płatną naprawą, prosimy o potwierdzenie, a przygotujemy szczegóły procedury.
 
-Pozdrawiamy,
-Dział Serwisu
+Z pozdowieniami,
+Zespół Wsparcia Technicznego
+
+ACNET sp. z o.o.
+ul. Sokołowska 9 lok. U4 01-142 Warszawa
+NIP: 525 192 06 57
 
 ---
 {{customer_email}} napisał(a):

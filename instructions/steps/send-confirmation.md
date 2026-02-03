@@ -64,10 +64,14 @@ Potwierdzamy przyjęcie zgłoszenia RMA dla urządzenia o numerze seryjnym "{{se
 Status gwarancji: AKTYWNA ({{warranty_expiration_date}})
 Numer zgłoszenia: {{ticket_id}}
 
-Nasz zespół techniczny skontaktuje się z Państwem w ciągu 2 dni roboczych w celu dalszych instrukcji.
+Nasz zespół techniczny skontaktuje się z Państwem wkrótce w celu dalszych instrukcji.
 
-Pozdrawiamy,
-Dział Serwisu
+Z pozdowieniami,
+Zespół Wsparcia Technicznego
+
+ACNET sp. z o.o.
+ul. Sokołowska 9 lok. U4 01-142 Warszawa
+NIP: 525 192 06 57
 
 ---
 {{customer_email}} napisał(a):

@@ -62,8 +62,12 @@ Nasz przełożony skontaktuje się z Państwem w ciągu najbliższych godzin rob
 
 Przepraszamy za wszelkie niedogodności.
 
-Pozdrawiamy,
-Dział Serwisu
+Z pozdowieniami,
+Zespół Wsparcia Technicznego
+
+ACNET sp. z o.o.
+ul. Sokołowska 9 lok. U4 01-142 Warszawa
+NIP: 525 192 06 57
 
 ---
 {{customer_email}} napisał(a):
