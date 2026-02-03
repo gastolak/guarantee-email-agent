@@ -622,42 +622,47 @@ class ResponseGenerator:
                 if expiry:
                     message_parts.append(f"Warranty Expiration: {expiry}")
 
-        # Step 3b: device-not-found - needs customer email and serial
+        # Step 3b: device-not-found - needs customer email, serial, and original subject
         elif step_name == "device-not-found":
             message_parts = [
                 f"Customer Email: {context.from_address}",
-                f"Serial Number: {context.serial_number}"
+                f"Serial Number: {context.serial_number}",
+                f"Original Subject: {context.email_subject}"
             ]
 
-        # Step 3c: expired-warranty - needs customer email, serial, expiration
+        # Step 3c: expired-warranty - needs customer email, serial, expiration, and original subject
         elif step_name == "expired-warranty":
             message_parts = [
                 f"Customer Email: {context.from_address}",
-                f"Serial Number: {context.serial_number}"
+                f"Serial Number: {context.serial_number}",
+                f"Original Subject: {context.email_subject}"
             ]
             if context.warranty_data:
                 expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
                 if expiry:
                     message_parts.append(f"Expiration Date: {expiry}")
 
-        # Step 3d: request-serial - only needs customer email
+        # Step 3d: request-serial - needs customer email and original subject
         elif step_name == "request-serial":
             message_parts = [
-                f"Customer Email: {context.from_address}"
+                f"Customer Email: {context.from_address}",
+                f"Original Subject: {context.email_subject}"
             ]
 
-        # Step 4: out-of-scope - only needs customer email
+        # Step 4: out-of-scope - needs customer email and original subject
         elif step_name == "out-of-scope":
             message_parts = [
-                f"Customer Email: {context.from_address}"
+                f"Customer Email: {context.from_address}",
+                f"Original Subject: {context.email_subject}"
             ]
 
-        # Step 5: send-confirmation - needs email, serial, ticket_id, warranty expiry
+        # Step 5: send-confirmation - needs email, serial, ticket_id, warranty expiry, and original subject
         elif step_name == "send-confirmation":
             message_parts = [
                 f"Customer Email: {context.from_address}",
                 f"Serial Number: {context.serial_number}",
-                f"Ticket ID: {context.ticket_id}"
+                f"Ticket ID: {context.ticket_id}",
+                f"Original Subject: {context.email_subject}"
             ]
             if context.warranty_data:
                 expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
