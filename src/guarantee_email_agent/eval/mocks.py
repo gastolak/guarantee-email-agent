@@ -84,6 +84,7 @@ class MockCrmAbacusTool:
                 "create_ticket": test_case.input.mock_responses.get("ticketing_system", {})
             }
         self.created_tickets: List[Dict[str, Any]] = []
+        self.history_entries: List[Dict[str, Any]] = []
 
     async def check_warranty(self, serial_number: str) -> Dict[str, Any]:
         """Return mock warranty data.
@@ -136,6 +137,26 @@ class MockCrmAbacusTool:
     async def add_ticket_info(self, zadanie_id: int, info_text: str) -> None:
         """Add info to ticket (no-op for mock)."""
         pass
+
+    async def append_ticket_history(self, ticket_id: str, sender: str, message: str) -> Dict[str, str]:
+        """Capture conversation history entry.
+
+        Args:
+            ticket_id: Ticket ID (positive or negative)
+            sender: Message sender ("CLIENT" or "AGENT")
+            message: Message content
+
+        Returns:
+            Mock status confirmation
+        """
+        history_entry = {
+            "ticket_id": ticket_id,
+            "sender": sender,
+            "message": message
+        }
+        self.history_entries.append(history_entry)
+        logger.debug(f"Mock: Stored history entry for ticket {ticket_id} - sender: {sender}")
+        return {"status": "stored", "ticket_id": ticket_id, "sender": sender}
 
     async def get_task_info(self, zadanie_id: int) -> Dict[str, Any]:
         """Get task info (mock)."""

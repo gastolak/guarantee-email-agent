@@ -443,6 +443,39 @@ class CrmAbacusTool:
                 )
                 raise IntegrationError(f"CRM Abacus add info error: {e}", code="integration_error") from e
 
+    async def append_ticket_history(self, ticket_id: str, sender: str, message: str) -> Dict[str, str]:
+        """Append conversation history entry to ticket.
+
+        Args:
+            ticket_id: Ticket ID (can be positive or negative, will use absolute value)
+            sender: Message sender ("CLIENT" or "AGENT")
+            message: Message content
+
+        Returns:
+            Dict with status confirmation
+
+        Raises:
+            IntegrationError: If API call fails
+        """
+        from datetime import datetime
+
+        # Convert ticket_id to absolute value (handle negative IDs for existing tickets)
+        zadanie_id = abs(int(ticket_id.replace("TKT-", "").replace("VIP-", "")))
+
+        # Format message with sender label and timestamp
+        timestamp = datetime.utcnow().isoformat() + "Z"
+        formatted_message = f"[{sender}] {message}\n\nTimestamp: {timestamp}"
+
+        # Call add_ticket_info with formatted message
+        await self.add_ticket_info(zadanie_id, formatted_message)
+
+        logger.info(
+            f"Conversation history stored for ticket {zadanie_id}",
+            extra={"tool": "crm_abacus", "operation": "append_ticket_history", "sender": sender}
+        )
+
+        return {"status": "stored", "ticket_id": str(zadanie_id), "sender": sender}
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10)

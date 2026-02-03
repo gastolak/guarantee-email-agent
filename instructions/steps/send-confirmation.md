@@ -1,7 +1,7 @@
 ---
 name: step-05-send-confirmation
-description: Step 5 - Send confirmation email with ticket details
-version: 1.0.0
+description: Step 5 - Send confirmation email to customer
+version: 1.1.0
 available_functions:
   - name: send_email
     description: Send an email to the customer. Returns confirmation of delivery.
@@ -78,11 +78,12 @@ Dział Serwisu
   <output_format>
     <title>After receiving the send_email response, you MUST output:</title>
     <format>
-      NEXT_STEP: DONE
+      NEXT_STEP: store-client-message
     </format>
     <rules>
       <rule>Output ONLY after function returns successfully</rule>
-      <rule>Use exact format: NEXT_STEP: DONE</rule>
+      <rule>Use exact format: NEXT_STEP: store-client-message</rule>
+      <rule>Continue to store-client-message step to save conversation</rule>
     </rules>
   </output_format>
 </system_instruction>

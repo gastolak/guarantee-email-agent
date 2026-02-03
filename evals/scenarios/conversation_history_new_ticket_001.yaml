@@ -1,0 +1,73 @@
+scenario_id: conversation_history_new_ticket_001
+description: New ticket - conversation history stored correctly (CLIENT + AGENT messages)
+category: conversation-history
+created: '2026-02-03'
+input:
+  email:
+    subject: "Problem z drukarką SN11111"
+    body: "Drukarka nie drukuje kolorów"
+    from: "customer@example.com"
+    received: '2026-02-03T14:00:00Z'
+  mock_function_responses:
+    check_warranty:
+      status: valid
+      warranty_type: service_contract
+      expires: '2026-08-15'
+      device_name: RICOH SP 330DN
+      serial: SN11111
+      klient_id: 555
+    create_ticket:
+      ticket_id: "TKT-9001"  # Positive = new ticket
+      status: created
+    send_email:
+      message_id: msg-history-001
+      status: sent
+    append_ticket_history:
+      status: stored
+expected_output:
+  scenario_instruction_used: steps:store-agent-message
+  processing_time_ms: 80000
+  expected_function_calls:
+  - function_name: check_warranty
+    arguments:
+      serial_number: SN11111
+    result_contains:
+      status: valid
+  - function_name: create_ticket
+    arguments_contain:
+      serial_number: SN11111
+      customer_email: customer@example.com
+      issue_description: "Drukarka nie drukuje kolorów"
+    result_contains:
+      ticket_id: "TKT-9001"
+  - function_name: send_email
+    arguments_contain:
+      to: customer@example.com
+      subject: "Re: Problem z drukarką SN11111"
+    body_contains:
+    - TKT-9001
+    - SN11111
+  - function_name: append_ticket_history
+    arguments_contain:
+      ticket_id: "TKT-9001"
+      sender: CLIENT
+      message: "Drukarka nie drukuje kolorów"
+  - function_name: append_ticket_history
+    arguments_contain:
+      ticket_id: "TKT-9001"
+      sender: AGENT
+    message_contains:
+    - "Potwierdzamy przyjęcie zgłoszenia"
+    - "TKT-9001"
+  expected_steps:
+  - extract-serial
+  - check-warranty
+  - valid-warranty
+  - send-confirmation
+  - store-client-message
+  - store-agent-message
+  workflow_outcome:
+    history_stored: true
+    history_entries: 2  # CLIENT + AGENT
+    ticket_created: true
+    email_sent: true

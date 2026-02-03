@@ -660,13 +660,14 @@ class ResponseGenerator:
                 f"Original Subject: {context.email_subject}"
             ]
 
-        # Step 5: send-confirmation - needs email, serial, ticket_id, warranty expiry, and original subject
+        # Step 5: send-confirmation - needs email, serial, ticket_id, warranty expiry, original subject, and email body
         elif step_name == "send-confirmation":
             message_parts = [
                 f"Customer Email: {context.from_address}",
                 f"Serial Number: {context.serial_number}",
                 f"Ticket ID: {context.ticket_id}",
-                f"Original Subject: {context.email_subject}"
+                f"Original Subject: {context.email_subject}",
+                f"Original Email Body: {context.email_body}"
             ]
             if context.warranty_data:
                 expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
@@ -694,6 +695,32 @@ class ResponseGenerator:
                 expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
                 if expiry:
                     message_parts.append(f"Warranty Expiration Date: {expiry}")
+
+        # Step 7a: store-client-message - needs ticket_id and original email body
+        elif step_name == "store-client-message":
+            message_parts = [
+                f"Ticket ID: {context.ticket_id}",
+                f"Original Email Body: {context.email_body}"
+            ]
+
+        # Step 7b: store-agent-message - needs ticket_id and agent response
+        elif step_name == "store-agent-message":
+            # Agent response body - construct the confirmation message that was sent
+            agent_response = f"""Dzień dobry,
+
+Potwierdzamy przyjęcie zgłoszenia RMA dla urządzenia o numerze seryjnym "{context.serial_number}".
+
+Status gwarancji: AKTYWNA (ważna do {context.warranty_data.get('expiration_date') or context.warranty_data.get('expires') if context.warranty_data else 'N/A'})
+Numer zgłoszenia: {context.ticket_id}
+
+Nasz zespół techniczny skontaktuje się z Państwem w ciągu 2 dni roboczych w celu dalszych instrukcji.
+
+Pozdrawiamy,
+Dział Serwisu"""
+            message_parts = [
+                f"Ticket ID: {context.ticket_id}",
+                f"Agent Response Body: {agent_response}"
+            ]
 
         # Fallback: if unknown step, provide full context (shouldn't happen)
         else:
