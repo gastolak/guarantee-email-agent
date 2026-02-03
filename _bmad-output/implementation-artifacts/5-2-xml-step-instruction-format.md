@@ -1112,3 +1112,237 @@ feat: Add issue description extraction, fix function signatures, and implement a
 
 This eliminates 401 auth errors and improves ticket quality and organization.
 ```
+
+---
+
+## Additional Enhancements (February 3, 2026 - Continued Session #2)
+
+### Enhancement 5: Email Threading Support
+
+**Problem:** All emails were being sent as new conversations instead of threaded replies.
+
+**User Request:** "can the e-mail be send as a respons to original mail rather then new one?" and "in the response keep the original message below - as in normal response flow"
+
+**Solution:** Implement Gmail threading using threadId + RFC 2822 In-Reply-To headers with original message quoting.
+
+**Files Modified:**
+1. **All customer-facing email steps** (6 files) - Added threading support:
+   - `instructions/steps/request-serial.md` - Request serial number as reply
+   - `instructions/steps/out-of-scope.md` - Out of scope notice as reply
+   - `instructions/steps/device-not-found.md` - Device not found notice as reply
+   - `instructions/steps/expired-warranty.md` - Expired warranty notice as reply
+   - `instructions/steps/send-confirmation.md` - Confirmation email as reply
+   - `instructions/steps/escalate-customer-ack.md` - Escalation acknowledgment as reply
+
+2. **StepContext dataclass** (`src/guarantee_email_agent/orchestrator/models.py`):
+   - Added `thread_id: Optional[str] = None` field (line 31)
+   - Added `message_id: Optional[str] = None` field (line 32)
+
+3. **Response Generator** (`src/guarantee_email_agent/llm/response_generator.py`):
+   - Pass `thread_id` and `message_id` to all email-sending steps
+   - Pass `original_body` for message quoting
+
+4. **Email Step Orchestrator** (`src/guarantee_email_agent/orchestrator/step_orchestrator.py`):
+   - Extract `thread_id` and `message_id` from incoming EmailMessage
+   - Populate StepContext with threading information
+
+**Implementation Details:**
+- All email templates now include:
+  ```yaml
+  <argument name="thread_id">
+    <source>context.thread_id</source>
+  </argument>
+  <argument name="in_reply_to_message_id">
+    <source>context.message_id</source>
+  </argument>
+  ```
+- Original message quoting format:
+  ```
+  ---
+  {{customer_email}} napisał(a):
+  > {{original_body}}
+  ```
+
+**Benefits:**
+- ✅ Email responses appear as threaded replies in Gmail
+- ✅ Conversation history maintained in single thread
+- ✅ Better customer experience - clear conversation context
+- ✅ RFC 2822 compliant email threading
+- ✅ Original messages quoted for reference
+
+**Affected Email Steps:**
+1. `request-serial` - "Please provide serial number" as reply
+2. `out-of-scope` - "Cannot help, contact support" as reply
+3. `device-not-found` - "Serial not found in system" as reply
+4. `expired-warranty` - "Warranty expired" as reply
+5. `send-confirmation` - "Ticket created" as reply
+6. `escalate-customer-ack` - "Escalated to supervisor" as reply
+
+**Note:** Admin/supervisor emails (`alert-admin-vip`, `escalate-supervisor-alert`) do NOT use threading as they are new notification emails, not customer replies.
+
+---
+
+### Enhancement 6: Railway Deployment Setup
+
+**Problem:** Agent needs to run 24/7 in production with proper token management.
+
+**User Request:** "can i deploy it on railway then?"
+
+**Solution:** Create comprehensive Railway deployment documentation and startup scripts.
+
+**Files Created:**
+1. **RAILWAY_DEPLOYMENT.md** (NEW) - Complete deployment guide including:
+   - Prerequisites and setup steps
+   - Token.pickle base64 encoding instructions
+   - Environment variable configuration
+   - Railway-specific settings (worker type, no health checks)
+   - Cost estimates ($0-2/month for minimal resources)
+   - Troubleshooting guide
+   - Alternative deployment options
+
+2. **scripts/railway-start.sh** (NEW) - Railway startup script:
+   - Decodes `GMAIL_TOKEN_PICKLE_BASE64` environment variable
+   - Fallback to `GMAIL_OAUTH_TOKEN` if pickle not available
+   - Startup logging with emojis for visibility
+   - Executes agent with proper error handling
+
+**Files Modified:**
+1. **Procfile**:
+   - Changed from: `worker: uv run python -m guarantee_email_agent run`
+   - To: `worker: bash scripts/railway-start.sh`
+
+**Railway Environment Variables:**
+```bash
+# Required
+GMAIL_TOKEN_PICKLE_BASE64=<base64_encoded_token_pickle>
+CRM_ABACUS_USERNAME=<username>
+CRM_ABACUS_PASSWORD=<password>
+GEMINI_API_KEY=<api_key>
+
+# Optional
+GMAIL_OAUTH_TOKEN=<fallback_token>
+ADMIN_EMAIL=admin@example.com
+SUPERVISOR_EMAIL=supervisor@example.com
+POLLING_INTERVAL_SECONDS=60
+```
+
+**Deployment Steps:**
+1. Convert token.pickle to base64: `base64 token.pickle`
+2. Create Railway project: `railway init`
+3. Configure environment variables in Railway dashboard
+4. Deploy: `railway up` (or push to connected GitHub repo)
+5. Monitor: `railway logs`
+
+**Benefits:**
+- ✅ 24/7 uptime with automatic restarts
+- ✅ Secure token storage via base64 environment variable
+- ✅ Zero-downtime deployments on git push
+- ✅ Minimal cost ($0-2/month on free tier)
+- ✅ Automatic token refresh on every startup
+- ✅ Production-ready configuration
+
+**Token Handling:**
+- Railway doesn't have persistent file storage
+- Solution: Store token.pickle as base64 in environment variable
+- Decoded on every startup to `/tmp/token.pickle`
+- Token auto-refreshes on startup (from Enhancement 4)
+- Ephemeral storage acceptable (tokens refresh automatically)
+
+**Cost Breakdown:**
+- Railway Free Tier: $5 credit/month (~500 hours)
+- Agent Memory Usage: ~100-200 MB
+- Agent CPU Usage: Minimal (polling-based)
+- **Estimated monthly cost: $0-2**
+
+---
+
+### Enhancement 7: Warranty Detection Logic Fix (Ongoing Service Contracts)
+
+**Problem:** Device with `data_stop: null` (ongoing service contract) was classified as "device not found".
+
+**User Feedback:** User provided CRM API response showing `data_start: "2023-01-15", data_stop: null` and said "it is not expired! there's no data stop - so it is still ok"
+
+**Root Cause:**
+- Line 269 in `crm_abacus_tool.py` checked `if device_data.get("data_stop")`
+- This only evaluated to True when an end date existed
+- Contracts with `data_stop: null` (ongoing) were being skipped
+
+**Solution:** Changed logic to check `if device_data.get("data_start")` first, then handle `data_stop is None` as ongoing valid contract.
+
+**Files Modified:**
+- `src/guarantee_email_agent/tools/crm_abacus_tool.py` (lines 269-281):
+  ```python
+  # Check service contract first (higher priority)
+  if device_data.get("data_start"):  # Contract exists
+      data_stop = device_data.get("data_stop")
+
+      if data_stop is None:
+          # No end date = active/ongoing contract (still valid)
+          status_info.update({
+              "status": "valid",
+              "warranty_type": "service_contract",
+              "expires": None  # Ongoing, no expiry
+          })
+          logger.info("Valid service contract (ongoing, no end date)")
+          return status_info
+  ```
+
+**Benefits:**
+- ✅ Ongoing service contracts now correctly identified as valid
+- ✅ Devices with `data_stop: null` properly handled
+- ✅ No more false "device not found" errors for active contracts
+- ✅ Better warranty validation logic
+
+---
+
+## Updated File List (Enhancements 5-7)
+
+**New Files Created:**
+1. `RAILWAY_DEPLOYMENT.md` - Railway deployment guide
+2. `scripts/railway-start.sh` - Railway startup script
+
+**Files Modified (Email Threading):**
+1. `instructions/steps/request-serial.md` - Added threading
+2. `instructions/steps/out-of-scope.md` - Added threading
+3. `instructions/steps/device-not-found.md` - Added threading
+4. `instructions/steps/expired-warranty.md` - Added threading
+5. `instructions/steps/send-confirmation.md` - Added threading
+6. `instructions/steps/escalate-customer-ack.md` - Added threading
+7. `src/guarantee_email_agent/orchestrator/models.py` - Added thread_id and message_id fields
+8. `src/guarantee_email_agent/llm/response_generator.py` - Pass threading context
+9. `src/guarantee_email_agent/orchestrator/step_orchestrator.py` - Extract threading info
+
+**Files Modified (Other):**
+1. `Procfile` - Updated for Railway startup script
+2. `src/guarantee_email_agent/tools/crm_abacus_tool.py` - Fixed warranty detection logic
+
+**Total Additional Changes:** 13 files (2 new, 11 modified)
+
+---
+
+## Final Commit Message
+
+```
+feat: Add email threading, Railway deployment, and fix warranty detection
+
+Email Threading:
+- All customer-facing emails now sent as threaded replies
+- Added thread_id and message_id support to StepContext
+- Original messages quoted in responses
+- 6 email steps updated: request-serial, out-of-scope, device-not-found,
+  expired-warranty, send-confirmation, escalate-customer-ack
+
+Railway Deployment:
+- Created comprehensive deployment guide (RAILWAY_DEPLOYMENT.md)
+- Added startup script with token.pickle base64 decoding
+- Updated Procfile for Railway worker configuration
+- Production-ready 24/7 deployment with $0-2/month cost
+
+Warranty Detection Fix:
+- Fixed logic for ongoing service contracts (data_stop: null)
+- Devices with active contracts no longer misclassified as "not found"
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
