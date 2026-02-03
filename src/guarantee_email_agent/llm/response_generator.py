@@ -610,12 +610,12 @@ class ResponseGenerator:
                 f"Serial Number: {context.serial_number}"
             ]
 
-        # Step 3a: valid-warranty (create_ticket) - needs serial, email, issue
+        # Step 3a: valid-warranty (create_ticket) - needs serial, email, issue description from email body
         elif step_name == "valid-warranty":
             message_parts = [
                 f"Serial Number: {context.serial_number}",
                 f"Customer Email: {context.from_address}",
-                f"Issue Description: DESCRIPTION"  # Placeholder for testing
+                f"Issue Description: {context.email_body}"
             ]
             if context.warranty_data:
                 expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')

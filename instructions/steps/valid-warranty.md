@@ -29,13 +29,9 @@ available_functions:
   </role>
 
   <current_context>
-    <!-- CRITICAL: Ensure your code injects these values here. 
-         If email or description are null, the function will fail. -->
-    <variable name="serial_number">22480L9010542</variable>
-    <variable name="device_name">RICOH MP 2555</variable>
-    <variable name="warranty_status">valid</variable>
-    <variable name="customer_email">{{INSERT_EMAIL_HERE}}</variable>
-    <variable name="issue_description">{{INSERT_ISSUE_DESCRIPTION_HERE}}</variable>
+    <variable name="serial_number">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <variable name="customer_email">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <variable name="issue_description">{{EXTRACT_FROM_CONTEXT}}</variable>
   </current_context>
 
   <task>

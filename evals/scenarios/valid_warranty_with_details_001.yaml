@@ -91,7 +91,8 @@ input:
       serial: C074AD3D3101
       klient_id: 789
     create_ticket:
-      nowe_zadanie_id: 6565
+      ticket_id: "TKT-6565"
+      status: "created"
     send_email:
       message_id: msg-abc123
       status: sent
@@ -106,18 +107,17 @@ expected_output:
       status: valid
   - function_name: create_ticket
     arguments_contain:
-      subject: RICOH MP 2555
-      description: czerwone diody
+      issue_description: czerwone diody
     result_contains:
-      nowe_zadanie_id: 12345
+      ticket_id: "TKT-6565"
   - function_name: send_email
     arguments_contain:
       to: test2@email.com
     body_contains:
     - C074AD3D3101
-    - Aktywna
-    - zgłoszenie serwisowe
-    - zarejestrowane
+    - TKT-6565
+    - Numer zgłoszenia
+    - AKTYWNA
   expected_steps:
   - extract-serial
   - check-warranty

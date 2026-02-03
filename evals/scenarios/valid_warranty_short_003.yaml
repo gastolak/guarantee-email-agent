@@ -35,7 +35,7 @@ expected_output:
       status: valid
   - function_name: create_ticket
     arguments_contain:
-      description: świeci na czerwono i mruga
+      issue_description: świeci na czerwono i mruga
   - function_name: send_email
     arguments_contain:
       to: test2@email.com

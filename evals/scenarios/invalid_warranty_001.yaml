@@ -30,7 +30,7 @@ expected_output:
   - function_name: send_email
     arguments_contain:
       to: customer@example.com
-      subject: "Re: Your warranty request"
+      subject: "Re: Warranty check for SN98765"
     body_contains:
     - SN98765
     - "2024-06-15"
