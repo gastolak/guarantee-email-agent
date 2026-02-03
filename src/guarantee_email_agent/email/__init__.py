@@ -60,7 +60,7 @@ def create_email_processor(config: AgentConfig) -> EmailProcessor:
     )
 
     # Initialize response generator
-    response_generator = ResponseGenerator(config, main_instruction)
+    response_generator = ResponseGenerator(config, main_instruction, gmail_tool)
 
     # Create processor with all dependencies
     processor = EmailProcessor(

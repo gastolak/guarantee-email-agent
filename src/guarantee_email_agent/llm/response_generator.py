@@ -43,18 +43,20 @@ class ResponseGenerator:
     contextually appropriate responses for warranty inquiries.
     """
 
-    def __init__(self, config: AgentConfig, main_instruction: InstructionFile):
+    def __init__(self, config: AgentConfig, main_instruction: InstructionFile, gmail_tool=None):
         """Initialize response generator.
 
         Args:
             config: Agent configuration
             main_instruction: Main orchestration instruction
+            gmail_tool: Optional Gmail tool for email operations
 
         Raises:
             ValueError: If required API key not configured
         """
         self.config = config
         self.main_instruction = main_instruction
+        self.gmail_tool = gmail_tool
 
         # Initialize LLM provider (Anthropic or Gemini based on config)
         self.llm_provider = create_llm_provider(config)
@@ -105,7 +107,10 @@ class ResponseGenerator:
                     agent_disable_feature_name=self.config.tools.crm_abacus.agent_disable_feature_name,
                     timeout=self.config.tools.crm_abacus.timeout_seconds
                 )
-                self._function_dispatcher = FunctionDispatcher(crm_abacus_tool=crm_tool)
+                self._function_dispatcher = FunctionDispatcher(
+                    gmail_tool=self.gmail_tool,
+                    crm_abacus_tool=crm_tool
+                )
                 logger.info("Function dispatcher created")
             except Exception as e:
                 raise LLMError(
