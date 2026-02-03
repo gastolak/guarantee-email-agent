@@ -17,6 +17,12 @@ available_functions:
         body:
           type: string
           description: Email body content (can include Polish text)
+        thread_id:
+          type: string
+          description: Optional Gmail thread ID for threading replies in same conversation
+        in_reply_to_message_id:
+          type: string
+          description: Optional message ID to reply to (adds In-Reply-To header for proper email threading)
       required: [to, subject, body]
 ---
 
@@ -31,6 +37,9 @@ available_functions:
     <variable name="ticket_id">{{EXTRACT_FROM_CONTEXT}}</variable>
     <variable name="warranty_expiration_date">{{EXTRACT_FROM_CONTEXT}}</variable>
     <variable name="original_subject">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <variable name="original_body">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <variable name="thread_id">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <variable name="message_id">{{EXTRACT_FROM_CONTEXT}}</variable>
   </current_context>
 
   <task>
@@ -52,14 +61,27 @@ Dzień dobry,
 
 Potwierdzamy przyjęcie zgłoszenia RMA dla urządzenia o numerze seryjnym "{{serial_number}}".
 
-Status gwarancji: AKTYWNA (ważna do {{warranty_expiration_date}})
+Status gwarancji: AKTYWNA ({{warranty_expiration_date}})
 Numer zgłoszenia: {{ticket_id}}
 
 Nasz zespół techniczny skontaktuje się z Państwem w ciągu 2 dni roboczych w celu dalszych instrukcji.
 
 Pozdrawiamy,
 Dział Serwisu
+
+---
+{{customer_email}} napisał(a):
+> {{original_body}}
       </template>
+      <note>If warranty_expiration_date is None/null, use "umowa serwisowa bez daty wygaśnięcia" instead of the date</note>
+    </argument>
+    <argument name="thread_id">
+      <source>context.thread_id</source>
+      <note>Thread in the same Gmail conversation</note>
+    </argument>
+    <argument name="in_reply_to_message_id">
+      <source>context.message_id</source>
+      <note>Reply to the original customer email</note>
     </argument>
   </function_arguments>
 

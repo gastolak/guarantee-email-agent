@@ -274,6 +274,10 @@ class StepOrchestrator:
         if "serial" in result.metadata:
             context.serial_number = result.metadata["serial"]
 
+        # Extract description if present
+        if "description" in result.metadata:
+            context.issue_description = result.metadata["description"]
+
         # Extract warranty data if present
         if "warranty_status" in result.metadata or "warranty_data" in result.metadata:
             context.warranty_data = result.metadata.get(

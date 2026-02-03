@@ -1,5 +1,7 @@
 """Email processing module for warranty inquiry emails."""
 
+import logging
+
 from guarantee_email_agent.config.schema import AgentConfig
 from guarantee_email_agent.email.models import (
     EmailMessage,
@@ -16,6 +18,9 @@ from guarantee_email_agent.email.serial_extractor import SerialNumberExtractor
 from guarantee_email_agent.instructions.loader import load_instruction_cached
 from guarantee_email_agent.tools import GmailTool, CrmAbacusTool
 from guarantee_email_agent.llm.response_generator import ResponseGenerator
+from guarantee_email_agent.utils.gmail_token_refresh import get_fresh_gmail_token
+
+logger = logging.getLogger(__name__)
 
 
 def create_email_processor(config: AgentConfig) -> EmailProcessor:
@@ -38,10 +43,20 @@ def create_email_processor(config: AgentConfig) -> EmailProcessor:
     extractor = SerialNumberExtractor(config, main_instruction.body)
     detector = ScenarioDetector(config, main_instruction.body)
 
+    # Refresh Gmail OAuth token from pickle file (if available)
+    logger.info("Refreshing Gmail OAuth token from pickle file...")
+    fresh_token = get_fresh_gmail_token(
+        token_pickle_path="token.pickle",
+        fallback_token=config.secrets.gmail_oauth_token
+    )
+
+    if not fresh_token:
+        raise ValueError("No valid Gmail OAuth token available - check token.pickle or GMAIL_OAUTH_TOKEN env var")
+
     # Initialize tools
     gmail_tool = GmailTool(
         api_endpoint=config.tools.gmail.api_endpoint,
-        oauth_token=config.secrets.gmail_oauth_token,
+        oauth_token=fresh_token,
         timeout=config.tools.gmail.timeout_seconds
     )
     crm_abacus_tool = CrmAbacusTool(

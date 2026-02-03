@@ -13,6 +13,7 @@ class StepContext:
         email_body: Email body content
         from_address: Sender email address
         serial_number: Extracted serial number (None if not found)
+        issue_description: Brief description of the issue (extracted from email)
         warranty_data: Warranty check response data
         ticket_id: Created ticket ID (None until ticket created)
         thread_id: Gmail thread ID for threading replies
@@ -24,6 +25,7 @@ class StepContext:
     email_body: str
     from_address: str
     serial_number: Optional[str] = None
+    issue_description: str = "Brak opisu"
     warranty_data: Optional[Dict[str, Any]] = None
     ticket_id: Optional[str] = None
     thread_id: Optional[str] = None

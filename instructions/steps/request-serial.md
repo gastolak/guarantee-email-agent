@@ -34,6 +34,7 @@ available_functions:
   <current_context>
     <variable name="customer_email">{{EXTRACT_FROM_CONTEXT}}</variable>
     <variable name="original_subject">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <variable name="original_body">{{EXTRACT_FROM_CONTEXT}}</variable>
     <variable name="thread_id">{{EXTRACT_FROM_CONTEXT}}</variable>
     <variable name="message_id">{{EXTRACT_FROM_CONTEXT}}</variable>
   </current_context>
@@ -68,6 +69,10 @@ Po otrzymaniu numeru seryjnego niezwłocznie sprawdzimy status gwarancji.
 
 Pozdrawiamy,
 Dział Serwisu
+
+---
+{{customer_email}} napisał(a):
+> {{original_body}}
       </template>
     </argument>
     <argument name="thread_id">

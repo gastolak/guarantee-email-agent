@@ -957,3 +957,158 @@ expected_output:
 6. **2325bfb** - "Task 9: Implement Conversation History Storage" (Task 10)
 7. **73e8692** - "Task 10: Implement Supervisor Escalation" (Task 11)
 8. **[Code Review]** - "Fix Task 7: Mark emails as read after processing + Fix eval definitions" (Task 7 + eval fixes)
+
+---
+
+## Additional Enhancements (February 3, 2026 - Continued Session)
+
+### Enhancement 1: Issue Description Extraction
+
+**Problem:** Tickets were being created with the full email body as description, making them hard to read.
+
+**Solution:** Extract concise issue description from customer emails in the `extract-serial` step.
+
+**Files Modified:**
+- `instructions/steps/extract-serial.md` - Added step 4 to extract issue description with "Brak opisu" fallback
+- `src/guarantee_email_agent/llm/response_generator.py` - Added DESCRIPTION parsing (lines 578-583)
+- `src/guarantee_email_agent/orchestrator/models.py` - Added `issue_description` field to StepContext
+- `src/guarantee_email_agent/orchestrator/step_orchestrator.py` - Extract description from metadata (lines 277-279)
+- `src/guarantee_email_agent/llm/response_generator.py` - Changed valid-warranty to use `context.issue_description` (line 639)
+
+**Benefits:**
+- ✅ Cleaner ticket descriptions
+- ✅ Better ticket readability
+- ✅ Automatic fallback to "Brak opisu" if no description found
+
+### Enhancement 2: Fixed create_ticket Function Signature Mismatch
+
+**Problem:** LLM was failing with "Unknown function" errors because step instruction parameters didn't match dispatcher expectations.
+
+**Root Cause:** 
+- Step instruction defined: `serial_number`, `customer_email`, `issue_description`, `priority`
+- Function dispatcher expected: `subject`, `description`
+- Actual tool method: `subject: str, description: str, customer_email: str, priority: str`
+
+**Solution:** Updated `valid-warranty.md` step instruction to match dispatcher expectations.
+
+**Files Modified:**
+- `instructions/steps/valid-warranty.md` - Updated function definition (lines 6-24) and arguments (lines 63-67)
+  - Changed to: `subject` (required), `description` (required)
+  - Subject format: `{{device_name}}:{{serial_number}}`
+  - Added `device_name` context variable
+- `src/guarantee_email_agent/llm/response_generator.py` - Added device_name to valid-warranty context (lines 642-644)
+
+**Benefits:**
+- ✅ Tickets now have proper subject format (device_name:serial)
+- ✅ No more function signature errors
+- ✅ Better ticket organization in CRM
+
+### Enhancement 3: Added Missing Functions to Dispatcher
+
+**Problem:** LLM was trying to call `check_agent_disabled` and `append_ticket_history` but dispatcher didn't support them.
+
+**Solution:** Implemented both functions in the function dispatcher.
+
+**Files Modified:**
+- `src/guarantee_email_agent/llm/function_dispatcher.py`:
+  - Added functions to allowed list (line 81)
+  - Added elif branches for routing (lines 91-94)
+  - Implemented `_execute_check_agent_disabled()` (lines 237-260)
+  - Implemented `_execute_append_ticket_history()` (lines 262-294)
+  - Updated `get_available_functions()` (line 304)
+
+**Function Details:**
+1. **check_agent_disabled**: Check if AI agent is disabled for existing tickets (used in valid-warranty step)
+2. **append_ticket_history**: Store conversation history in tickets (used in store-history steps)
+
+**Benefits:**
+- ✅ Agent can handle existing tickets with AI opt-out
+- ✅ Conversation history properly stored
+- ✅ Complete workflow support
+
+### Enhancement 4: Automatic Gmail Token Refresh on Startup
+
+**Problem:** OAuth tokens expire after ~1 hour causing 401 Unauthorized errors.
+
+**User Request:** "Can we refresh it on every run to be sure?"
+
+**Solution:** Implemented automatic token refresh on every agent startup using Google Auth library.
+
+**Files Created:**
+- `src/guarantee_email_agent/utils/gmail_token_refresh.py` (NEW) - Token refresh utility
+  - `refresh_gmail_token()` - Loads and refreshes from pickle file
+  - `get_fresh_gmail_token()` - Main function with fallback to env var
+
+**Files Modified:**
+- `src/guarantee_email_agent/email/__init__.py`:
+  - Added import for `get_fresh_gmail_token`
+  - Added token refresh before Gmail tool initialization (lines 46-54)
+  - Gmail tool now uses refreshed token instead of static env var
+
+**How It Works:**
+1. On every startup: Loads `token.pickle` file
+2. Checks expiration: Verifies if token is still valid
+3. Auto-refreshes: If expired, refreshes using refresh_token from Google OAuth
+4. Saves back: Updated token saved to `token.pickle`
+5. Fallback: Uses `GMAIL_OAUTH_TOKEN` env var if pickle doesn't exist
+
+**Log Output:**
+```
+[INFO] Refreshing Gmail OAuth token from pickle file...
+[INFO] Loading Gmail credentials from pickle file
+[INFO] Gmail token is still valid (or "Refreshing expired Gmail token...")
+```
+
+**Benefits:**
+- ✅ Never expires unexpectedly - auto-refresh on every startup
+- ✅ No manual intervention needed - set it and forget it
+- ✅ Graceful fallback to environment variable
+- ✅ Production-ready with proper error handling
+- ✅ No downtime - token always fresh before API calls
+
+**Dependencies:** Already present in pyproject.toml:
+- `google-auth>=2.0.0`
+- `google-auth-oauthlib>=1.0.0`
+- `google-auth-httplib2>=0.1.0`
+
+**Usage:**
+```bash
+# Initial setup (one time)
+uv run python scripts/get_gmail_token.py --credentials credentials.json
+
+# Run agent (auto-refreshes every time)
+uv run python -m guarantee_email_agent run
+```
+
+---
+
+## Updated File List
+
+**New Files Created:**
+1. `src/guarantee_email_agent/utils/gmail_token_refresh.py` - Gmail OAuth token refresh utility
+
+**Additional Files Modified:**
+1. `src/guarantee_email_agent/llm/function_dispatcher.py` - Added check_agent_disabled and append_ticket_history
+2. `src/guarantee_email_agent/orchestrator/models.py` - Added issue_description field
+3. `src/guarantee_email_agent/orchestrator/step_orchestrator.py` - Extract description from metadata
+4. `src/guarantee_email_agent/email/__init__.py` - Integrated token refresh
+5. `instructions/steps/extract-serial.md` - Added description extraction
+6. `instructions/steps/valid-warranty.md` - Fixed function signature
+
+**Total Additional Changes:** 7 files (1 new, 6 modified)
+
+---
+
+## Commit Message for This Session
+
+```
+feat: Add issue description extraction, fix function signatures, and implement auto token refresh
+
+- Extract concise issue descriptions from emails (default: "Brak opisu")
+- Fix create_ticket function signature to match dispatcher expectations
+- Add check_agent_disabled and append_ticket_history to function dispatcher
+- Implement automatic Gmail OAuth token refresh on every startup
+- Tickets now have proper subject format: device_name:serial_number
+
+This eliminates 401 auth errors and improves ticket quality and organization.
+```

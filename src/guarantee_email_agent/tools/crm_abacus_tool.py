@@ -266,18 +266,31 @@ class CrmAbacusTool:
                 }
 
                 # Check service contract first (higher priority)
-                if device_data.get("data_stop"):
-                    contract_end = date.fromisoformat(device_data["data_stop"])
-                    if contract_end >= today:
+                if device_data.get("data_start"):  # Contract exists
+                    data_stop = device_data.get("data_stop")
+
+                    if data_stop is None:
+                        # No end date = active/ongoing contract (still valid)
                         status_info.update({
                             "status": "valid",
                             "warranty_type": "service_contract",
-                            "expires": device_data["data_stop"]
+                            "expires": None  # Ongoing, no expiry
                         })
-                        logger.info("Valid service contract", extra={"expires": device_data["data_stop"]})
+                        logger.info("Valid service contract (ongoing, no end date)", extra={"expires": None})
                         return status_info
                     else:
-                        status_info["status"] = "expired"
+                        # Has explicit end date
+                        contract_end = date.fromisoformat(data_stop)
+                        if contract_end >= today:
+                            status_info.update({
+                                "status": "valid",
+                                "warranty_type": "service_contract",
+                                "expires": data_stop
+                            })
+                            logger.info("Valid service contract", extra={"expires": data_stop})
+                            return status_info
+                        else:
+                            status_info["status"] = "expired"
 
                 # Check manufacturer warranty
                 if device_data.get("producent_gwarancja_stop"):
@@ -348,7 +361,7 @@ class CrmAbacusTool:
                         serial_number = parts[1].strip()
 
                 # Try to find klient_id from serial
-                klient_id = self.ticket_defaults.get("unrecognized_klient_id", 702)
+                klient_id = self.ticket_defaults.unrecognized_klient_id
                 if serial_number:
                     try:
                         device_data = await self.find_device_by_serial(serial_number)
@@ -359,10 +372,10 @@ class CrmAbacusTool:
 
                 # Create ticket with defaults
                 payload = {
-                    "dzial_id": self.ticket_defaults["dzial_id"],
-                    "typ_zadania_id": self.ticket_defaults["typ_zadania_id"],
-                    "typ_wykonania_id": self.ticket_defaults["typ_wykonania_id"],
-                    "organizacja_id": self.ticket_defaults["organizacja_id"],
+                    "dzial_id": self.ticket_defaults.dzial_id,
+                    "typ_zadania_id": self.ticket_defaults.typ_zadania_id,
+                    "typ_wykonania_id": self.ticket_defaults.typ_wykonania_id,
+                    "organizacja_id": self.ticket_defaults.organizacja_id,
                     "klient_id": klient_id,
                     "temat": subject,
                     "opis": description

@@ -78,7 +78,7 @@ class FunctionDispatcher:
         )
 
         # Check for unknown function first - this should raise immediately
-        if function_name not in ("check_warranty", "create_ticket", "send_email"):
+        if function_name not in ("check_warranty", "create_ticket", "send_email", "check_agent_disabled", "append_ticket_history"):
             raise ValueError(f"Unknown function: {function_name}")
 
         try:
@@ -88,6 +88,10 @@ class FunctionDispatcher:
                 result = await self._execute_create_ticket(arguments)
             elif function_name == "send_email":
                 result = await self._execute_send_email(arguments)
+            elif function_name == "check_agent_disabled":
+                result = await self._execute_check_agent_disabled(arguments)
+            elif function_name == "append_ticket_history":
+                result = await self._execute_append_ticket_history(arguments)
 
             execution_time_ms = int((time.time() - start_time) * 1000)
 
@@ -230,6 +234,65 @@ class FunctionDispatcher:
             "status": "sent"
         }
 
+    async def _execute_check_agent_disabled(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute check_agent_disabled function.
+
+        Args:
+            arguments: Must contain 'zadanie_id'
+
+        Returns:
+            Dict with agent_disabled boolean
+
+        Raises:
+            ValueError: If CRM Abacus tool not configured or required args missing
+        """
+        if self._crm_abacus_tool is None:
+            raise ValueError("CRM Abacus tool not configured")
+
+        zadanie_id = arguments.get("zadanie_id")
+        if not zadanie_id:
+            raise ValueError("Missing required argument: zadanie_id")
+
+        agent_disabled = await self._crm_abacus_tool.check_agent_disabled(zadanie_id=int(zadanie_id))
+
+        return {
+            "agent_disabled": agent_disabled
+        }
+
+    async def _execute_append_ticket_history(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute append_ticket_history function.
+
+        Args:
+            arguments: Must contain 'ticket_id', 'sender', 'message'
+
+        Returns:
+            Dict with status confirmation
+
+        Raises:
+            ValueError: If CRM Abacus tool not configured or required args missing
+        """
+        if self._crm_abacus_tool is None:
+            raise ValueError("CRM Abacus tool not configured")
+
+        ticket_id = arguments.get("ticket_id")
+        sender = arguments.get("sender")
+        message = arguments.get("message")
+
+        if not ticket_id:
+            raise ValueError("Missing required argument: ticket_id")
+        if not sender:
+            raise ValueError("Missing required argument: sender")
+        if not message:
+            raise ValueError("Missing required argument: message")
+
+        result = await self._crm_abacus_tool.append_ticket_history(
+            ticket_id=str(ticket_id),
+            sender=sender,
+            message=message
+        )
+
+        return result
+
     def get_available_functions(self) -> list[str]:
         """Get list of available function names based on configured tools.
 
@@ -238,7 +301,7 @@ class FunctionDispatcher:
         """
         available = []
         if self._crm_abacus_tool is not None:
-            available.extend(["check_warranty", "create_ticket"])
+            available.extend(["check_warranty", "create_ticket", "check_agent_disabled", "append_ticket_history"])
         if self._gmail_tool is not None:
             available.append("send_email")
         return available

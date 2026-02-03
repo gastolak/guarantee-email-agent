@@ -61,6 +61,14 @@ version: 1.1.0
       <if_found>Route to check-warranty with serial number</if_found>
       <if_not_found>Route to request-serial</if_not_found>
     </step>
+    <step priority="4">
+      <question>Extract issue description from email</question>
+      <instructions>
+        <instruction>Extract a brief description of the problem from the email body</instruction>
+        <instruction>If no clear description is provided, use "Brak opisu"</instruction>
+        <instruction>Keep description concise (1-2 sentences)</instruction>
+      </instructions>
+    </step>
   </analysis_steps>
 
   <constraints>
@@ -84,12 +92,14 @@ REASON: Customer expressed frustration or requested human contact
       <format>
 NEXT_STEP: check-warranty
 SERIAL: &lt;extracted-serial-number&gt;
+DESCRIPTION: &lt;brief-issue-description-or-Brak-opisu&gt;
 REASON: Customer reported broken device and provided serial number
       </format>
     </option>
     <option name="serial_not_found">
       <format>
 NEXT_STEP: request-serial
+DESCRIPTION: &lt;brief-issue-description-or-Brak-opisu&gt;
 REASON: Customer reported broken device but did not provide serial number
       </format>
     </option>
@@ -122,6 +132,7 @@ REASON: Email is not about a warranty issue (describe reason)
       <action>No escalation indicators detected</action>
       <output>NEXT_STEP: check-warranty</output>
       <output>SERIAL: SN12345</output>
+      <output>DESCRIPTION: Drukarka nie działa</output>
     </example>
   </examples>
 </system_instruction>

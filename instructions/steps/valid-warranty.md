@@ -8,20 +8,20 @@ available_functions:
     parameters:
       type: object
       properties:
-        serial_number:
+        subject:
           type: string
-          description: Product serial number for the warranty claim
-        customer_email:
-          type: string
-          description: Customer email address
-        issue_description:
+          description: Ticket subject line (format - device_name:serial_number)
+        description:
           type: string
           description: Description of the device issue
+        customer_email:
+          type: string
+          description: Customer email address (optional)
         priority:
           type: string
-          description: Ticket priority level
+          description: Ticket priority level (optional)
           enum: [low, normal, high, urgent]
-      required: [serial_number, customer_email, issue_description, priority]
+      required: [subject, description]
   - name: check_agent_disabled
     description: Check if AI agent is disabled for existing ticket. Only call if ticket_id is negative (existing ticket).
     parameters:
@@ -42,7 +42,9 @@ available_functions:
     <variable name="serial_number">{{EXTRACT_FROM_CONTEXT}}</variable>
     <variable name="customer_email">{{EXTRACT_FROM_CONTEXT}}</variable>
     <variable name="issue_description">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <variable name="device_name">{{EXTRACT_FROM_CONTEXT}}</variable>
     <variable name="czas_naprawy">{{EXTRACT_FROM_CONTEXT}}</variable>
+    <note>subject should be formatted as: device_name:serial_number (e.g., "HP LaserJet Pro:SN12345")</note>
   </current_context>
 
   <task>
@@ -59,10 +61,10 @@ available_functions:
       <action>Call create_ticket with all required parameters</action>
       <function_call>create_ticket</function_call>
       <arguments>
-        <argument name="serial_number">{{serial_number}}</argument>
-        <argument name="customer_email">{{customer_email}}</argument>
-        <argument name="issue_description">{{issue_description}}</argument>
-        <argument name="priority">normal</argument>
+        <argument name="subject">{{device_name}}:{{serial_number}}</argument>
+        <argument name="description">{{issue_description}}</argument>
+        <argument name="customer_email">{{customer_email}} (optional)</argument>
+        <argument name="priority">normal (optional)</argument>
       </arguments>
       <save_result>ticket_id</save_result>
     </step>
