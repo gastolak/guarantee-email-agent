@@ -306,7 +306,113 @@ f"Issue Description: {context.email_body}"  # Actual customer issue from email
 
 ## New Requirements - To Be Implemented
 
-### ⏳ Task 7: AI Agent Opt-Out Check (Negative Ticket ID Detection)
+### 🚨 Task 7: Mark Emails as Read After Processing (CRITICAL BUG FIX)
+
+**Status:** TODO
+**Priority:** CRITICAL 🚨
+**Estimated Effort:** 0.25 days (2 hours)
+
+**Problem:**
+Currently, processed emails are **NOT marked as read**, causing them to be **re-processed infinitely** on every polling cycle (every 60 seconds). This results in:
+- Duplicate email responses sent to customers
+- Duplicate ticket creation attempts
+- Wasted API calls and LLM tokens
+- Infinite processing loop
+
+**Root Cause:**
+- `gmail_tool.mark_as_read()` function exists but is **never called** in the processing pipeline
+- `EmailProcessor.process_email_with_steps()` completes successfully but doesn't mark email as read
+- `AgentRunner.process_inbox_emails()` doesn't mark emails as read after processing
+
+**Requirements:**
+1. After successful email processing, call `gmail_tool.mark_as_read(message_id)`
+2. Mark as read ONLY if processing completed successfully (don't mark failed emails)
+3. If mark_as_read fails, log warning but don't fail the entire processing
+4. Failed emails remain unread for retry on next polling cycle
+
+**Implementation Plan:**
+- [ ] Modify `src/guarantee_email_agent/email/processor.py`:
+  - Add `gmail_tool` parameter to all process methods
+  - After successful processing (before returning `ProcessingResult`), call:
+    ```python
+    try:
+        await self.gmail_tool.mark_as_read(email_id)
+        logger.info(f"Email marked as read: {email_id}")
+    except Exception as e:
+        logger.warning(f"Failed to mark email as read: {e}")
+        # Don't fail processing - email was handled successfully
+    ```
+- [ ] Add call in `process_email_with_steps()` after line 860 (after success log)
+- [ ] Add call in `process_email_with_functions()` after line 727 (after success log)
+- [ ] Do NOT mark as read if `ProcessingResult.success = False`
+- [ ] Add logging: `"Email marked as read: {email_id}"`
+
+**Testing:**
+```python
+async def test_email_marked_as_read_after_processing():
+    # Given: Unread email
+    email = create_sample_email()
+
+    # When: Process email successfully
+    result = await processor.process_email_with_steps(email)
+
+    # Then: mark_as_read was called
+    assert result.success == True
+    gmail_tool.mark_as_read.assert_called_once_with(email.message_id)
+
+async def test_failed_email_not_marked_as_read():
+    # Given: Email that will fail
+    email = create_sample_email()
+    mock_warranty_api_failure()
+
+    # When: Process email (fails)
+    result = await processor.process_email_with_steps(email)
+
+    # Then: mark_as_read was NOT called
+    assert result.success == False
+    gmail_tool.mark_as_read.assert_not_called()
+```
+
+**Eval Scenario:** `email_marked_as_read_001.yaml`
+```yaml
+scenario_id: email_marked_as_read_001
+description: "Successfully processed email is marked as read"
+category: gmail-integration
+
+input:
+  email:
+    subject: "Test SN12345"
+    body: "Device not working"
+    from: "customer@example.com"
+
+  mock_function_responses:
+    check_warranty:
+      status: "valid"
+    create_ticket:
+      ticket_id: "TKT-001"
+
+expected_output:
+  processing_success: true
+  ticket_created: true
+
+  # NEW: Verify mark_as_read called
+  gmail_mark_as_read_called: true
+  gmail_message_marked_as_read: true
+```
+
+**Files to Modify:**
+- [ ] `src/guarantee_email_agent/email/processor.py` - Add mark_as_read calls
+- [ ] `evals/scenarios/email_marked_as_read_001.yaml` - New eval scenario
+
+**Impact:**
+- **CRITICAL**: Without this fix, the agent will infinitely re-process the same emails
+- Customers will receive duplicate responses every 60 seconds
+- Duplicate tickets will be created (or negative ticket IDs returned)
+- This must be fixed BEFORE deploying to production
+
+---
+
+### ⏳ Task 8: AI Agent Opt-Out Check (Negative Ticket ID Detection)
 
 **Status:** TODO
 **Priority:** HIGH
@@ -383,7 +489,7 @@ expected_output:
 
 ---
 
-### ⏳ Task 8: VIP Warranty Alert (czas_naprawy < 24h)
+### ⏳ Task 9: VIP Warranty Alert (czas_naprawy < 24h)
 
 **Status:** TODO
 **Priority:** HIGH
@@ -479,7 +585,7 @@ expected_output:
 
 ---
 
-### ⏳ Task 9: Conversation History Storage
+### ⏳ Task 10: Conversation History Storage
 
 **Status:** TODO
 **Priority:** MEDIUM
@@ -597,7 +703,7 @@ expected_output:
 
 ---
 
-### ⏳ Task 10: Escalation to Supervisor (Unhappy Customer Detection)
+### ⏳ Task 11: Escalation to Supervisor (Unhappy Customer Detection)
 
 **Status:** TODO
 **Priority:** MEDIUM
@@ -719,7 +825,7 @@ expected_output:
 
 ## Updated Status Summary
 
-### Completed Tasks (6/10) ✅
+### Completed Tasks (6/11) ✅
 - [x] Task 1: Convert All Step Instructions to XML Format
 - [x] Task 2: Implement Dynamic Subject Generation
 - [x] Task 3: Optimize Context Passing (Step-Specific Data Only)
@@ -727,11 +833,12 @@ expected_output:
 - [x] Task 5: Fix Eval Definitions for New Template Structure
 - [x] Task 6: Fix Function Call Detection Bug
 
-### Pending Tasks (4/10) ⏳
-- [ ] Task 7: AI Agent Opt-Out Check (Negative Ticket ID Detection) - HIGH PRIORITY
-- [ ] Task 8: VIP Warranty Alert (czas_naprawy < 24h) - HIGH PRIORITY
-- [ ] Task 9: Conversation History Storage - MEDIUM PRIORITY
-- [ ] Task 10: Escalation to Supervisor (Unhappy Customer Detection) - MEDIUM PRIORITY
+### Pending Tasks (5/11) ⏳
+- [ ] **Task 7: Mark Emails as Read After Processing** - **CRITICAL PRIORITY** 🚨
+- [ ] Task 8: AI Agent Opt-Out Check (Negative Ticket ID Detection) - HIGH PRIORITY
+- [ ] Task 9: VIP Warranty Alert (czas_naprawy < 24h) - HIGH PRIORITY
+- [ ] Task 10: Conversation History Storage - MEDIUM PRIORITY
+- [ ] Task 11: Escalation to Supervisor (Unhappy Customer Detection) - MEDIUM PRIORITY
 
 ---
 
@@ -748,11 +855,12 @@ expected_output:
 - [x] No regressions in existing functionality
 
 ### In Progress / TODO ⏳
-- [ ] AI Agent opt-out check implemented with eval (Task 7)
-- [ ] VIP warranty admin alert implemented with eval (Task 8)
-- [ ] Conversation history storage implemented with 2 evals (Task 9)
-- [ ] Supervisor escalation implemented with 2 evals (Task 10)
-- [ ] All 11 eval scenarios passing (5 existing + 6 new = 100% pass rate)
+- [ ] **Mark as read after processing (Task 7) - CRITICAL BUG FIX** 🚨
+- [ ] AI Agent opt-out check implemented with eval (Task 8)
+- [ ] VIP warranty admin alert implemented with eval (Task 9)
+- [ ] Conversation history storage implemented with 2 evals (Task 10)
+- [ ] Supervisor escalation implemented with 2 evals (Task 11)
+- [ ] All 12 eval scenarios passing (5 existing + 7 new = 100% pass rate)
 - [ ] New step files created: `06-alert-admin-vip.md`, `07-escalate-to-supervisor.md`
 - [ ] Config updated with `admin_email` and `supervisor_email`
 - [ ] Code reviewed and all new features tested
@@ -764,15 +872,17 @@ expected_output:
 | Task | Original | Completed | Remaining | Total |
 |------|----------|-----------|-----------|-------|
 | Tasks 1-6 | 2 days | 1.5 days | - | 1.5 days |
-| Task 7 (AI Opt-Out) | - | - | 0.5 days | 0.5 days |
-| Task 8 (VIP Alert) | - | - | 0.5 days | 0.5 days |
-| Task 9 (History) | - | - | 1 day | 1 day |
-| Task 10 (Escalation) | - | - | 1 day | 1 day |
-| **TOTAL** | 2 days | 1.5 days | **3 days** | **4.5 days** |
+| **Task 7 (Mark as Read)** | - | - | **0.25 days** | **0.25 days** |
+| Task 8 (AI Opt-Out) | - | - | 0.5 days | 0.5 days |
+| Task 9 (VIP Alert) | - | - | 0.5 days | 0.5 days |
+| Task 10 (History) | - | - | 1 day | 1 day |
+| Task 11 (Escalation) | - | - | 1 day | 1 day |
+| **TOTAL** | 2 days | 1.5 days | **3.25 days** | **4.75 days** |
 
 ---
 
-**Story Status:** 🔄 IN PROGRESS (60% complete - 6/10 tasks done)
+**Story Status:** 🔄 IN PROGRESS (55% complete - 6/11 tasks done)
 **Completion Date (Phase 1):** February 3, 2026
-**Estimated Completion (Full Story):** February 6, 2026 (+3 days remaining)
+**Estimated Completion (Full Story):** February 7, 2026 (+3.25 days remaining)
 **Quality:** All acceptance criteria met for completed tasks, 100% eval pass rate maintained
+**⚠️ CRITICAL BUG:** Task 7 must be completed BEFORE production deployment to prevent infinite email reprocessing

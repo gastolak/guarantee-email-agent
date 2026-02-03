@@ -610,7 +610,7 @@ class ResponseGenerator:
                 f"Serial Number: {context.serial_number}"
             ]
 
-        # Step 3a: valid-warranty (create_ticket) - needs serial, email, issue description from email body
+        # Step 3a: valid-warranty (create_ticket) - needs serial, email, issue description, czas_naprawy
         elif step_name == "valid-warranty":
             message_parts = [
                 f"Serial Number: {context.serial_number}",
@@ -621,6 +621,10 @@ class ResponseGenerator:
                 expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
                 if expiry:
                     message_parts.append(f"Warranty Expiration: {expiry}")
+                # Add czas_naprawy for VIP warranty detection
+                czas_naprawy = context.warranty_data.get('czas_naprawy')
+                if czas_naprawy is not None:
+                    message_parts.append(f"Czas Naprawy: {czas_naprawy}")
 
         # Step 3b: device-not-found - needs customer email, serial, and original subject
         elif step_name == "device-not-found":
@@ -668,6 +672,28 @@ class ResponseGenerator:
                 expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
                 if expiry:
                     message_parts.append(f"Warranty Expiration: {expiry}")
+
+        # Step 6: alert-admin-vip - needs admin email, customer email, serial, ticket_id, czas_naprawy, issue
+        elif step_name == "alert-admin-vip":
+            # Load admin_email from config
+            from guarantee_email_agent.config import load_config
+            config = load_config()
+            admin_email = config.agent.admin_email
+
+            message_parts = [
+                f"Admin Email: {admin_email}",
+                f"Customer Email: {context.from_address}",
+                f"Serial Number: {context.serial_number}",
+                f"Issue Description: {context.email_body}",
+                f"Ticket ID: {context.ticket_id}"
+            ]
+            if context.warranty_data:
+                czas_naprawy = context.warranty_data.get('czas_naprawy')
+                if czas_naprawy is not None:
+                    message_parts.append(f"Czas Naprawy: {czas_naprawy}")
+                expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
+                if expiry:
+                    message_parts.append(f"Warranty Expiration Date: {expiry}")
 
         # Fallback: if unknown step, provide full context (shouldn't happen)
         else:

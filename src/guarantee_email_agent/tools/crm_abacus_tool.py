@@ -261,7 +261,8 @@ class CrmAbacusTool:
                     "expires": None,
                     "device_name": device_data.get("nazwa"),
                     "serial": device_data.get("serial"),
-                    "klient_id": device_data.get("klient_id")
+                    "klient_id": device_data.get("klient_id"),
+                    "czas_naprawy": device_data.get("czas_naprawy")  # VIP warranty indicator
                 }
 
                 # Check service contract first (higher priority)

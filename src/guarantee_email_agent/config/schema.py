@@ -105,6 +105,8 @@ class AgentRuntimeConfig:
     shutdown_timeout_seconds: int = 30
     max_consecutive_errors: int = 10
     use_step_orchestrator: bool = True  # Use step-by-step state machine (vs monolithic scenarios)
+    admin_email: str = "admin@suntar.pl"  # Admin email for VIP warranty alerts (Task 8)
+    supervisor_email: str = "supervisor@suntar.pl"  # Supervisor email for escalations (Task 10)
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,68 @@
+scenario_id: vip_warranty_alert_001
+description: VIP warranty (czas_naprawy < 24h) triggers admin alert then customer confirmation
+category: vip-warranty
+created: '2026-02-03'
+input:
+  email:
+    subject: "Gwarancja SN99999"
+    body: "Drukarka nie działa, pilne!"
+    from: "vip@example.com"
+    received: '2026-02-03T11:00:00Z'
+  mock_function_responses:
+    check_warranty:
+      status: valid
+      warranty_type: service_contract
+      expires: '2027-06-30'
+      device_name: RICOH MP 3055
+      serial: SN99999
+      klient_id: 999
+      czas_naprawy: 12  # VIP - under 24 hours!
+    create_ticket:
+      ticket_id: "VIP-5001"
+      status: created
+    send_email:
+      message_id: msg-vip-001
+      status: sent
+expected_output:
+  scenario_instruction_used: steps:send-confirmation
+  processing_time_ms: 80000
+  expected_function_calls:
+  - function_name: check_warranty
+    arguments:
+      serial_number: SN99999
+    result_contains:
+      status: valid
+      czas_naprawy: 12
+  - function_name: create_ticket
+    arguments_contain:
+      serial_number: SN99999
+      customer_email: vip@example.com
+      issue_description: "Drukarka nie działa, pilne!"
+    result_contains:
+      ticket_id: "VIP-5001"
+  - function_name: send_email
+    arguments_contain:
+      to: "admin@suntar.pl"
+      subject: "[VIP GWARANCJA] Naprawa < 24h - Ticket VIP-5001"
+    body_contains:
+    - "VIP-5001"
+    - "vip@example.com"
+    - "SN99999"
+    - "12"
+    - "czas naprawy"
+  - function_name: send_email
+    arguments_contain:
+      to: vip@example.com
+    body_contains:
+    - VIP-5001
+    - SN99999
+  expected_steps:
+  - extract-serial
+  - check-warranty
+  - valid-warranty
+  - alert-admin-vip  # VIP alert sent to admin
+  - send-confirmation  # Customer confirmation
+  workflow_outcome:
+    admin_alerted: true
+    customer_notified: true
+    vip_warranty_detected: true
