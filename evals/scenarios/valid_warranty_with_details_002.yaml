@@ -91,7 +91,8 @@ input:
       serial: 22480L9010542
       klient_id: 789
     create_ticket:
-      nowe_zadanie_id: 12346
+      ticket_id: "TKT-12346"
+      status: "created"
     send_email:
       message_id: msg-abc124
       status: sent
@@ -106,15 +107,15 @@ expected_output:
       status: valid
   - function_name: create_ticket
     arguments_contain:
-      subject: RICOH MP 2555
-      description: czerwone diody
+      issue_description: czerwone diody
   - function_name: send_email
     arguments_contain:
       to: test2@email.com
     body_contains:
     - 22480L9010542
-    - Aktywna
-    - zgłoszenie
+    - TKT-12346
+    - Numer zgłoszenia
+    - AKTYWNA
   expected_steps:
   - extract-serial
   - check-warranty

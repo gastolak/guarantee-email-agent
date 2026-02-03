@@ -9,19 +9,33 @@ input:
     from: maciek.gastol@gmail.com
     received: '2025-10-15T16:30:00Z'
   mock_function_responses:
+    check_warranty:
+      status: not_found
+      warranty_type: null
+      expires: null
+      device_name: null
+      serial: '1234'
+      klient_id: null
     send_email:
       message_id: msg-abc130
       status: sent
 expected_output:
-  scenario_instruction_used: steps:request-serial
+  scenario_instruction_used: steps:device-not-found
   processing_time_ms: 60000
   expected_function_calls:
+  - function_name: check_warranty
+    arguments:
+      serial_number: '1234'
+    result_contains:
+      status: not_found
   - function_name: send_email
     arguments_contain:
       to: maciek.gastol@gmail.com
+      subject: "Re: Hej"
     body_contains:
-    - szczegółowy opis usterki
-    - co dokładnie dzieje się z urządzeniem
+    - '1234'
+    - nie odnaleźliśmy
   expected_steps:
   - extract-serial
-  - request-serial
+  - check-warranty
+  - device-not-found

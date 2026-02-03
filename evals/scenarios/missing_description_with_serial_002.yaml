@@ -10,19 +10,39 @@ input:
     from: test2@email.com
     received: '2025-10-15T15:30:00Z'
   mock_function_responses:
+    check_warranty:
+      status: valid
+      warranty_type: service_contract
+      expires: '2027-01-15'
+      device_name: RICOH MP 2555
+      serial: C074AD3D3102
+      klient_id: 789
+    create_ticket:
+      ticket_id: "TKT-12347"
+      status: "created"
     send_email:
       message_id: msg-abc128
       status: sent
 expected_output:
-  scenario_instruction_used: steps:request-serial
+  scenario_instruction_used: steps:send-confirmation
   processing_time_ms: 60000
   expected_function_calls:
+  - function_name: check_warranty
+    arguments:
+      serial_number: C074AD3D3102
+    result_contains:
+      status: valid
+  - function_name: create_ticket
+    arguments_contain:
+      issue_description: 'Naprawcie please mi sprzęt o numerze seryjnym: C074AD3D3102'
   - function_name: send_email
     arguments_contain:
       to: test2@email.com
     body_contains:
-    - szczegółowy opis usterki
-    - co dokładnie dzieje się z urządzeniem
+    - C074AD3D3102
+    - TKT-12347
   expected_steps:
   - extract-serial
-  - request-serial
+  - check-warranty
+  - valid-warranty
+  - send-confirmation
