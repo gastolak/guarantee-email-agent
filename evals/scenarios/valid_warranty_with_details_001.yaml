@@ -91,7 +91,7 @@ input:
       serial: C074AD3D3101
       klient_id: 789
     create_ticket:
-      nowe_zadanie_id: 12345
+      nowe_zadanie_id: 6565
     send_email:
       message_id: msg-abc123
       status: sent

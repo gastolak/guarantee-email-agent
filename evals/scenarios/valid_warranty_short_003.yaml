@@ -19,7 +19,8 @@ input:
       serial: C074AD3D3102
       klient_id: 789
     create_ticket:
-      nowe_zadanie_id: 12347
+      ticket_id: "TKT-12345"
+      status: "created"
     send_email:
       message_id: msg-abc125
       status: sent
@@ -40,8 +41,8 @@ expected_output:
       to: test2@email.com
     body_contains:
     - C074AD3D3102
-    - Aktywna
-    - zgłoszenie serwisowe
+    - Numer zgłoszenia
+    - TKT-12345
   expected_steps:
   - extract-serial
   - check-warranty

@@ -30,8 +30,13 @@ expected_output:
   - function_name: send_email
     arguments_contain:
       to: customer@example.com
+      subject: "Re: Your warranty request"
     body_contains:
     - SN98765
+    - "2024-06-15"
+    - WYGASŁA
+    - "płatną naprawę"
+    - "6 miesięcy gwarancji"
   expected_steps:
   - extract-serial
   - check-warranty

@@ -23,49 +23,62 @@ available_functions:
           enum: [low, normal, high, urgent]
       required: [serial_number, customer_email, issue_description, priority]
 ---
+<system_instruction>
+  <role>
+    You are an autonomous warranty processing agent. Your ONLY goal right now is to execute the 'create_ticket' function.
+  </role>
 
-# Step 3a: Valid Warranty - Create Support Ticket
+  <current_context>
+    <!-- CRITICAL: Ensure your code injects these values here. 
+         If email or description are null, the function will fail. -->
+    <variable name="serial_number">22480L9010542</variable>
+    <variable name="device_name">RICOH MP 2555</variable>
+    <variable name="warranty_status">valid</variable>
+    <variable name="customer_email">{{INSERT_EMAIL_HERE}}</variable>
+    <variable name="issue_description">{{INSERT_ISSUE_DESCRIPTION_HERE}}</variable>
+  </current_context>
 
-The warranty check returned **VALID** status. The device is covered under warranty.
+  <task>
+    <action>CALL_FUNCTION</action>
+    <target_function>create_ticket</target_function>
+    <urgency>IMMEDIATE</urgency>
+  </task>
 
-## Your Task
+  <function_arguments>
+    <argument name="serial_number">
+      <source>context.serial_number</source>
+    </argument>
+    <argument name="customer_email">
+      <source>context.customer_email</source>
+    </argument>
+    <argument name="issue_description">
+      <source>context.issue_description</source>
+    </argument>
+    <argument name="priority">
+      <fixed_value>normal</fixed_value>
+    </argument>
+  </function_arguments>
 
-Create a support ticket for this warranty claim.
+  <constraints>
+    <constraint>Do NOT output any conversational text or reasoning.</constraint>
+    <constraint>Do NOT describe the next step.</constraint>
+    <constraint>Output ONLY the function call.</constraint>
+  </constraints>
 
-### Create Support Ticket
-Call `create_ticket` function:
-```
-create_ticket(
-  serial_number="<serial from previous steps>",
-  customer_email="<customer email address>",
-  issue_description="Device broken/faulty - extracted from email",
-  priority="normal"
-)
-```
+  <expected_response>
+    <field name="ticket_id">Save for next step</field>
+    <field name="status">created</field>
+    <field name="created_at">Timestamp</field>
+  </expected_response>
 
-**IMPORTANT**: Save the `ticket_id` from the response - you'll need it for the next step.
-
-Example response:
-```json
-{
-  "ticket_id": "TKT-12345",
-  "status": "created",
-  "created_at": "2025-01-15T10:30:00Z"
-}
-```
-
-## Next Step
-
-After creating ticket: **Go to Step 05 (send-confirmation)** with parameters:
-- ticket_id (from create_ticket response)
-- serial_number
-- customer_email
-- warranty_expiration_date
-
-## Output Format
-
-After creating the ticket, you **MUST** output:
-
-```
-NEXT_STEP: send-confirmation
-```
+  <output_format>
+    <title>After receiving the create_ticket response, you MUST output:</title>
+    <format>
+      NEXT_STEP: send-confirmation
+    </format>
+    <rules>
+      <rule>Output ONLY after function returns successfully</rule>
+      <rule>Use exact format: NEXT_STEP: send-confirmation</rule>
+    </rules>
+  </output_format>
+</system_instruction>

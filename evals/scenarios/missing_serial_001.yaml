@@ -22,7 +22,7 @@ expected_output:
     body_contains:
     - numer seryjny
     - naklejce znamionowej
-    - tyłu lub na spodzie urządzenia
+    - tabliczki znamionowej
   expected_steps:
   - extract-serial
   - request-serial

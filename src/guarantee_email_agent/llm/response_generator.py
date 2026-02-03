@@ -578,31 +578,109 @@ class ResponseGenerator:
             step_name=step_name
         )
 
-    def _build_step_user_message(self, context: StepContext) -> str:
-        """Build user message for step execution.
+    def _build_step_user_message(self, step_name: str, context: StepContext) -> str:
+        """Build user message for step execution with only relevant data.
+
+        Each step receives only the data it needs to minimize token usage
+        and reduce confusion. The step instruction tells the LLM what to do,
+        and the user message provides only the required input data.
 
         Args:
+            step_name: Current step name (e.g., "extract-serial", "check-warranty")
             context: Current workflow context
 
         Returns:
-            Formatted user message for LLM
+            Formatted user message for LLM with step-specific data
         """
-        message_parts = [
-            "Customer Email:",
-            f"Subject: {context.email_subject}",
-            f"From: {context.from_address}",
-            f"Body: {context.email_body}",
-            ""
-        ]
+        message_parts = []
 
-        if context.serial_number:
-            message_parts.append(f"Serial Number: {context.serial_number}")
+        # Step 1: extract-serial - needs full email to read and understand
+        if step_name == "extract-serial":
+            message_parts = [
+                "<email>",
+                f"<subject>{context.email_subject}</subject>",
+                f"<from>{context.from_address}</from>",
+                f"<body>{context.email_body}</body>",
+                "</email>"
+            ]
 
-        if context.warranty_data:
-            message_parts.append(f"Warranty Data: {context.warranty_data}")
+        # Step 2: check-warranty - only needs serial number
+        elif step_name == "check-warranty":
+            message_parts = [
+                f"Serial Number: {context.serial_number}"
+            ]
 
-        if context.ticket_id:
-            message_parts.append(f"Ticket ID: {context.ticket_id}")
+        # Step 3a: valid-warranty (create_ticket) - needs serial, email, issue
+        elif step_name == "valid-warranty":
+            message_parts = [
+                f"Serial Number: {context.serial_number}",
+                f"Customer Email: {context.from_address}",
+                f"Issue Description: DESCRIPTION"  # Placeholder for testing
+            ]
+            if context.warranty_data:
+                expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
+                if expiry:
+                    message_parts.append(f"Warranty Expiration: {expiry}")
+
+        # Step 3b: device-not-found - needs customer email and serial
+        elif step_name == "device-not-found":
+            message_parts = [
+                f"Customer Email: {context.from_address}",
+                f"Serial Number: {context.serial_number}"
+            ]
+
+        # Step 3c: expired-warranty - needs customer email, serial, expiration
+        elif step_name == "expired-warranty":
+            message_parts = [
+                f"Customer Email: {context.from_address}",
+                f"Serial Number: {context.serial_number}"
+            ]
+            if context.warranty_data:
+                expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
+                if expiry:
+                    message_parts.append(f"Expiration Date: {expiry}")
+
+        # Step 3d: request-serial - only needs customer email
+        elif step_name == "request-serial":
+            message_parts = [
+                f"Customer Email: {context.from_address}"
+            ]
+
+        # Step 4: out-of-scope - only needs customer email
+        elif step_name == "out-of-scope":
+            message_parts = [
+                f"Customer Email: {context.from_address}"
+            ]
+
+        # Step 5: send-confirmation - needs email, serial, ticket_id, warranty expiry
+        elif step_name == "send-confirmation":
+            message_parts = [
+                f"Customer Email: {context.from_address}",
+                f"Serial Number: {context.serial_number}",
+                f"Ticket ID: {context.ticket_id}"
+            ]
+            if context.warranty_data:
+                expiry = context.warranty_data.get('expiration_date') or context.warranty_data.get('expires')
+                if expiry:
+                    message_parts.append(f"Warranty Expiration: {expiry}")
+
+        # Fallback: if unknown step, provide full context (shouldn't happen)
+        else:
+            logger.warning(f"Unknown step name '{step_name}', providing full context")
+            message_parts = [
+                "<email>",
+                f"<subject>{context.email_subject}</subject>",
+                f"<from>{context.from_address}</from>",
+                f"<body>{context.email_body}</body>",
+                "</email>",
+                ""
+            ]
+            if context.serial_number:
+                message_parts.append(f"Serial Number: {context.serial_number}")
+            if context.warranty_data:
+                message_parts.append(f"Warranty Data: {context.warranty_data}")
+            if context.ticket_id:
+                message_parts.append(f"Ticket ID: {context.ticket_id}")
 
         return "\n".join(message_parts)
 
@@ -644,31 +722,46 @@ class ResponseGenerator:
             # Load step instruction
             step_instruction = load_step_instruction(step_name)
 
-            # Build system message from main instruction + step instruction
+            # Build system message from ONLY step instruction (not main instruction)
+            # Main instruction contains full workflow which confuses LLM for individual steps
             system_message = (
-                f"{self.main_instruction.body}\n\n"
                 f"## Current Step: {step_instruction.name}\n"
                 f"{step_instruction.body}"
             )
 
-            # Build user message from context
-            user_message = self._build_step_user_message(context)
+            # Build user message from context (step-specific data only)
+            user_message = self._build_step_user_message(step_name, context)
 
             # Check if step has function definitions
             available_functions = step_instruction.get_available_functions()
 
+            # Debug: Show context state before this step
+            print(f"\n📊 CONTEXT STATE FOR STEP {step_name}:")
+            print(f"  - Serial: {context.serial_number}")
+            print(f"  - Warranty Data: {context.warranty_data}")
+            print(f"  - Ticket ID: {context.ticket_id}")
+            print()
+
             if available_functions:
                 # Step requires function calling
-                logger.info(
-                    f"Step {step_name} has {len(available_functions)} functions, using function calling mode",
-                    extra={"step_name": step_name, "function_count": len(available_functions)}
-                )
+                print(f"🔧 Step {step_name} has {len(available_functions)} available functions:")
+                for func in available_functions:
+                    print(f"  - {func.name}")
+                print()
+
+                # Debug: Show what prompt is being sent to LLM
+                print(f"📝 FULL SYSTEM MESSAGE BEING SENT TO LLM:")
+                print(f"{'='*80}")
+                print(system_message)  # FULL system message
+                print(f"{'='*80}\n")
+
+                print(f"👤 FULL USER MESSAGE:")
+                print(f"{'='*80}")
+                print(user_message)
+                print(f"{'='*80}\n")
 
                 # Get or create function dispatcher
                 function_dispatcher = self._get_function_dispatcher()
-
-                # Track how many calls we had before this step
-                calls_before = len(context.function_calls)
 
                 # Use function calling mode
                 function_result = await asyncio.wait_for(
@@ -686,10 +779,15 @@ class ResponseGenerator:
                 # Extract response text and function calls from result
                 response_text = function_result.response_text
 
-                # Store ONLY NEW function calls from this step (avoid duplicates)
-                # function_result.function_calls contains ALL calls the dispatcher has seen
-                # so we take only the NEW ones added during this step
-                new_calls = function_result.function_calls[calls_before:]
+                # function_result.function_calls contains ONLY the calls from THIS step
+                # (create_message_with_functions returns a fresh list each time)
+                new_calls = function_result.function_calls
+
+                print(f"📞 Function calls in this step: {len(new_calls)}")
+                for call in new_calls:
+                    args_str = ', '.join(f'{k}={str(v)[:50]}...' if len(str(v)) > 50 else f'{k}={v}' for k, v in call.arguments.items())
+                    print(f"  - {call.function_name}({args_str})")
+
                 context.function_calls.extend(new_calls)
 
             else:
@@ -698,6 +796,17 @@ class ResponseGenerator:
                     f"Step {step_name} has no functions, using text-only mode",
                     extra={"step_name": step_name}
                 )
+
+                # Debug: Show what prompt is being sent to LLM (text-only mode)
+                print(f"📝 FULL SYSTEM MESSAGE BEING SENT TO LLM:")
+                print(f"{'='*80}")
+                print(system_message)
+                print(f"{'='*80}\n")
+
+                print(f"👤 FULL USER MESSAGE:")
+                print(f"{'='*80}")
+                print(user_message)
+                print(f"{'='*80}\n")
 
                 response_text = await asyncio.wait_for(
                     asyncio.to_thread(
@@ -718,8 +827,32 @@ class ResponseGenerator:
                     details={"step_name": step_name}
                 )
 
+            # Log the full LLM response for debugging
+            print(f"\n{'='*80}")
+            print(f"STEP: {step_name}")
+            print(f"LLM RESPONSE:")
+            print(response_text)
+            print(f"{'='*80}\n")
+
             # Parse response for NEXT_STEP and metadata
             result = self._parse_step_response(response_text, step_name)
+
+            # Add function call results to metadata if this step had functions
+            if available_functions and new_calls:
+                for call in new_calls:
+                    # Special handling for check_warranty - add warranty data to metadata
+                    if call.function_name == "check_warranty" and call.success and call.result:
+                        result.metadata["warranty_data"] = call.result
+                        logger.debug(f"Added warranty_data to metadata: {call.result}")
+
+                    # Special handling for create_ticket - add ticket_id to metadata
+                    elif call.function_name == "create_ticket" and call.success and call.result:
+                        # Result might be a dict with ticket_id or just the ticket_id string
+                        if isinstance(call.result, dict) and "ticket_id" in call.result:
+                            result.metadata["ticket_id"] = call.result["ticket_id"]
+                        elif isinstance(call.result, str):
+                            result.metadata["ticket_id"] = call.result
+                        logger.debug(f"Added ticket_id to metadata: {result.metadata.get('ticket_id')}")
 
             logger.info(
                 f"Step response generated: {step_name} → {result.next_step}",

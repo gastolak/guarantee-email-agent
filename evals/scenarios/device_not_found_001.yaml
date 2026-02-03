@@ -31,10 +31,11 @@ expected_output:
   - function_name: send_email
     arguments_contain:
       to: test2@email.com
+      subject: "Re: Hej"
     body_contains:
     - asdfadsf
     - nie odnaleźliśmy
-    - głównej tabliczki znamionowej
+    - Sprawdzenie poprawności numeru seryjnego
   expected_steps:
   - extract-serial
   - check-warranty
