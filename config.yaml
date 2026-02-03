@@ -45,8 +45,8 @@ agent:
   shutdown_timeout_seconds: 30
   max_consecutive_errors: 10
   use_step_orchestrator: true  # Use step-by-step state machine (vs monolithic scenarios)
-  admin_email: "maciek.gastol+1@gmail.com"  # Admin email for VIP warranty alerts (Task 8)
-  supervisor_email: "maciek.gastol+2@gmail.com"  # Supervisor email for escalations (Task 10)
+  admin_email: "admin@suntar.pl"  # Admin email for VIP warranty alerts (Task 8)
+  supervisor_email: "supervisor@suntar.pl"  # Supervisor email for escalations (Task 10)
 
 # Logging Configuration
 # NFR14: Customer email body logged ONLY at DEBUG level

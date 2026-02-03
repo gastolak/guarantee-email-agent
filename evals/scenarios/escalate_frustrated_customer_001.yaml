@@ -1,0 +1,42 @@
+scenario_id: escalate_frustrated_customer_001
+description: Frustrated customer with repeated emails escalated to supervisor
+category: escalation
+created: '2026-02-03'
+input:
+  email:
+    subject: "Re: Re: Gwarancja SN77777 - to skandal!"
+    body: "To już trzeci raz piszę! Nikt mi nie pomaga! Chcę rozmawiać z przełożonym!"
+    from: "frustrated@example.com"
+    received: '2026-02-03T16:00:00Z'
+  mock_function_responses:
+    send_email:
+      message_id: msg-escalate-001
+      status: sent
+expected_output:
+  scenario_instruction_used: steps:escalate-supervisor-alert
+  processing_time_ms: 40000
+  expected_function_calls:
+  - function_name: send_email
+    arguments_contain:
+      to: frustrated@example.com
+      subject: "Re: Re: Re: Gwarancja SN77777 - to skandal!"
+    body_contains:
+    - "przekazujemy sprawę do naszego przełożonego"
+    - "Przepraszamy"
+  - function_name: send_email
+    arguments_contain:
+      to: supervisor@suntar.pl
+      subject: "[ESKALACJA]"
+    body_contains:
+    - "frustrated@example.com"
+    - "trzeci raz piszę"
+    - "SN77777"
+    - "WYMAGA NATYCHMIASTOWEJ UWAGI"
+  expected_steps:
+  - extract-serial
+  - escalate-customer-ack
+  - escalate-supervisor-alert
+  workflow_outcome:
+    supervisor_alerted: true
+    workflow_escalated: true
+    customer_acknowledged: true

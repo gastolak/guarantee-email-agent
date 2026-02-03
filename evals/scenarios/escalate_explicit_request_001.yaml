@@ -1,0 +1,39 @@
+scenario_id: escalate_explicit_request_001
+description: Explicit request to speak with human triggers escalation
+category: escalation
+created: '2026-02-03'
+input:
+  email:
+    subject: "Gwarancja - chcę rozmawiać z człowiekiem"
+    body: "Mam problem z SN55555. Proszę o kontakt telefoniczny, nie chcę rozmawiać z botem."
+    from: "human-request@example.com"
+    received: '2026-02-03T17:00:00Z'
+  mock_function_responses:
+    send_email:
+      message_id: msg-escalate-002
+      status: sent
+expected_output:
+  scenario_instruction_used: steps:escalate-supervisor-alert
+  processing_time_ms: 40000
+  expected_function_calls:
+  - function_name: send_email
+    arguments_contain:
+      to: human-request@example.com
+      subject: "Re: Gwarancja - chcę rozmawiać z człowiekiem"
+    body_contains:
+    - "przekazujemy sprawę do naszego przełożonego"
+  - function_name: send_email
+    arguments_contain:
+      to: supervisor@suntar.pl
+      subject: "[ESKALACJA]"
+    body_contains:
+    - "human-request@example.com"
+    - "SN55555"
+    - "nie chcę rozmawiać z botem"
+  expected_steps:
+  - extract-serial
+  - escalate-customer-ack
+  - escalate-supervisor-alert
+  workflow_outcome:
+    supervisor_alerted: true
+    escalation_reason: explicit_human_request

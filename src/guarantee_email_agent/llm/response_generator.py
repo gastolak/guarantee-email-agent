@@ -722,6 +722,29 @@ Dział Serwisu"""
                 f"Agent Response Body: {agent_response}"
             ]
 
+        # Step 8a: escalate-customer-ack - needs customer email and original subject
+        elif step_name == "escalate-customer-ack":
+            message_parts = [
+                f"Customer Email: {context.from_address}",
+                f"Original Subject: {context.email_subject}"
+            ]
+
+        # Step 8b: escalate-supervisor-alert - needs supervisor email, customer context, escalation reason
+        elif step_name == "escalate-supervisor-alert":
+            # Load supervisor_email from config
+            from guarantee_email_agent.config import load_config
+            config = load_config()
+            supervisor_email = config.agent.supervisor_email
+
+            message_parts = [
+                f"Supervisor Email: {supervisor_email}",
+                f"Customer Email: {context.from_address}",
+                f"Email Subject: {context.email_subject}",
+                f"Email Body: {context.email_body}",
+                f"Serial Number: {context.serial_number if context.serial_number else 'Not provided'}",
+                f"Escalation Reason: Customer expressed frustration or requested human contact"
+            ]
+
         # Fallback: if unknown step, provide full context (shouldn't happen)
         else:
             logger.warning(f"Unknown step name '{step_name}', providing full context")
