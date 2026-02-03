@@ -1,0 +1,53 @@
+scenario_id: ai_agent_opt_out_001
+description: Customer has opted out of AI agent - workflow halts after detecting disabled flag
+category: ai-opt-out
+created: '2026-02-03'
+input:
+  email:
+    subject: "Re: Gwarancja - SN12345"
+    body: "Urządzenie nadal nie działa"
+    from: "customer@example.com"
+    received: '2026-02-03T10:00:00Z'
+  mock_function_responses:
+    check_warranty:
+      status: valid
+      warranty_type: service_contract
+      expires: '2026-12-31'
+      device_name: RICOH MP 2555
+      serial: SN12345
+      klient_id: 789
+    create_ticket:
+      ticket_id: "-8829"  # NEGATIVE = existing ticket
+      status: created
+    check_agent_disabled:
+      posiada_ceche: true  # AI agent is DISABLED
+expected_output:
+  scenario_instruction_used: steps:valid-warranty
+  processing_time_ms: 60000
+  expected_function_calls:
+  - function_name: check_warranty
+    arguments:
+      serial_number: SN12345
+    result_contains:
+      status: valid
+  - function_name: create_ticket
+    arguments_contain:
+      serial_number: SN12345
+      customer_email: customer@example.com
+      issue_description: "Urządzenie nadal nie działa"
+    result_contains:
+      ticket_id: "-8829"
+  - function_name: check_agent_disabled
+    arguments:
+      zadanie_id: 8829  # Absolute value
+    result_contains:
+      posiada_ceche: true
+  expected_steps:
+  - extract-serial
+  - check-warranty
+  - valid-warranty  # Workflow stops here - DONE
+  workflow_outcome:
+    email_sent: false  # NO EMAIL SENT - workflow halted
+    ticket_created: false  # Ticket already existed
+    workflow_halted: true
+    halt_reason: ai_agent_disabled

@@ -73,8 +73,16 @@ class MockCrmAbacusTool:
         Args:
             test_case: Eval test case with mock_responses
         """
-        self.warranty_responses = test_case.input.mock_responses.get("warranty_api", {})
-        self.ticketing_responses = test_case.input.mock_responses.get("ticketing_system", {})
+        self.test_case = test_case
+        # Support both legacy and new format
+        if test_case.input.mock_function_responses:
+            self.mock_responses = test_case.input.mock_function_responses
+        else:
+            # Legacy format mapping
+            self.mock_responses = {
+                "check_warranty": test_case.input.mock_responses.get("warranty_api", {}),
+                "create_ticket": test_case.input.mock_responses.get("ticketing_system", {})
+            }
         self.created_tickets: List[Dict[str, Any]] = []
 
     async def check_warranty(self, serial_number: str) -> Dict[str, Any]:
@@ -87,7 +95,7 @@ class MockCrmAbacusTool:
             Mock warranty data from test case
         """
         logger.debug(f"Mock: Checking warranty for {serial_number}")
-        return self.warranty_responses
+        return self.mock_responses.get("check_warranty", {})
 
     async def create_ticket(
         self,
@@ -105,7 +113,7 @@ class MockCrmAbacusTool:
             priority: Priority level (optional)
 
         Returns:
-            Mock ticket ID
+            Mock ticket ID from test case or generated
         """
         ticket = {
             "subject": subject,
@@ -114,8 +122,15 @@ class MockCrmAbacusTool:
             "priority": priority
         }
         self.created_tickets.append(ticket)
-        ticket_id = f"TICKET-{len(self.created_tickets)}"
-        logger.debug(f"Mock: Created ticket {ticket_id}")
+
+        # Return mock ticket_id from test case if available
+        mock_response = self.mock_responses.get("create_ticket", {})
+        if "ticket_id" in mock_response:
+            ticket_id = mock_response["ticket_id"]
+            logger.debug(f"Mock: Created ticket {ticket_id} (from mock_responses)")
+        else:
+            ticket_id = f"TICKET-{len(self.created_tickets)}"
+            logger.debug(f"Mock: Created ticket {ticket_id} (generated)")
         return ticket_id
 
     async def add_ticket_info(self, zadanie_id: int, info_text: str) -> None:
@@ -127,8 +142,18 @@ class MockCrmAbacusTool:
         return {"zadanie_id": zadanie_id, "temat": "Mock Task"}
 
     async def check_agent_disabled(self, zadanie_id: int) -> bool:
-        """Check if agent disabled (always False in mock)."""
-        return False
+        """Check if agent disabled via mock response.
+
+        Args:
+            zadanie_id: Task ID to check
+
+        Returns:
+            Mock agent disabled status from test case
+        """
+        mock_response = self.mock_responses.get("check_agent_disabled", {})
+        agent_disabled = mock_response.get("posiada_ceche", False)
+        logger.debug(f"Mock: check_agent_disabled({zadanie_id}) -> {agent_disabled}")
+        return agent_disabled
 
     async def close(self) -> None:
         """Close connection (no-op for mock)."""
