@@ -24,7 +24,7 @@ input:
       message_id: msg-vip-001
       status: sent
 expected_output:
-  scenario_instruction_used: steps:send-confirmation
+  scenario_instruction_used: steps:store-agent-message
   processing_time_ms: 80000
   expected_function_calls:
   - function_name: check_warranty
@@ -56,12 +56,20 @@ expected_output:
     body_contains:
     - VIP-5001
     - SN99999
+  - function_name: append_ticket_history
+    arguments_contain:
+      sender: CLIENT
+  - function_name: append_ticket_history
+    arguments_contain:
+      sender: AGENT
   expected_steps:
   - extract-serial
   - check-warranty
   - valid-warranty
   - alert-admin-vip  # VIP alert sent to admin
   - send-confirmation  # Customer confirmation
+  - store-client-message
+  - store-agent-message
   workflow_outcome:
     admin_alerted: true
     customer_notified: true

@@ -25,7 +25,7 @@ input:
       message_id: msg-abc125
       status: sent
 expected_output:
-  scenario_instruction_used: steps:send-confirmation
+  scenario_instruction_used: steps:store-agent-message
   processing_time_ms: 60000
   expected_function_calls:
   - function_name: check_warranty
@@ -43,8 +43,16 @@ expected_output:
     - C074AD3D3102
     - Numer zgłoszenia
     - TKT-12345
+  - function_name: append_ticket_history
+    arguments_contain:
+      sender: CLIENT
+  - function_name: append_ticket_history
+    arguments_contain:
+      sender: AGENT
   expected_steps:
   - extract-serial
   - check-warranty
   - valid-warranty
   - send-confirmation
+  - store-client-message
+  - store-agent-message

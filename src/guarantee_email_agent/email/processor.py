@@ -859,6 +859,18 @@ class EmailProcessor:
                     }
                 )
 
+                # Task 7: Mark email as read after successful processing
+                try:
+                    await self.gmail_tool.mark_as_read(email_id)
+                    logger.info(f"Email marked as read: {email_id}")
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to mark email as read: {e}",
+                        extra={"email_id": email_id},
+                        exc_info=True
+                    )
+                    # Don't fail processing - email was handled successfully
+
                 return ProcessingResult(
                     success=True,
                     email_id=email_id,
