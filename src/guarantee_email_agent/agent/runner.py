@@ -19,6 +19,7 @@ from guarantee_email_agent.config.schema import AgentConfig
 from guarantee_email_agent.email.processor import EmailProcessor
 from guarantee_email_agent.email.processor_models import ProcessingResult
 from guarantee_email_agent.tools import GmailTool
+from guarantee_email_agent.utils.gmail_token_refresh import get_fresh_gmail_token
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,26 @@ class AgentRunner:
         """
         logger.info("SIGHUP received, rotating log files")
         self._log_rotation_requested = True
+
+    def _refresh_gmail_token(self) -> None:
+        """Refresh Gmail OAuth token if needed.
+
+        This is called before each inbox poll to ensure the token is always fresh.
+        Tokens expire after ~1 hour, so we refresh them proactively.
+        """
+        try:
+            fresh_token = get_fresh_gmail_token(
+                token_pickle_path="token.pickle",
+                fallback_token=self.config.secrets.gmail_oauth_token
+            )
+
+            if fresh_token and fresh_token != self.gmail_tool.oauth_token:
+                logger.info("Updating Gmail tool with refreshed token")
+                self.gmail_tool.oauth_token = fresh_token
+            elif not fresh_token:
+                logger.warning("Token refresh returned None - using existing token")
+        except Exception as e:
+            logger.error(f"Error refreshing Gmail token: {e}", exc_info=True)
 
     async def poll_inbox(self) -> List[Dict[str, Any]]:
         """Poll Gmail inbox for unread emails.
@@ -206,6 +227,9 @@ class AgentRunner:
         # Tools don't need explicit connection
 
         try:
+            # Refresh Gmail token before polling
+            self._refresh_gmail_token()
+
             # Poll inbox
             emails = await self.poll_inbox()
 
@@ -258,6 +282,9 @@ class AgentRunner:
                 if self._log_rotation_requested:
                     self._rotate_logs()
                     self._log_rotation_requested = False
+
+                # Refresh Gmail token before polling (tokens expire after ~1 hour)
+                self._refresh_gmail_token()
 
                 # Poll inbox
                 emails = await self.poll_inbox()
