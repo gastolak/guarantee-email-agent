@@ -72,7 +72,8 @@ def get_gmail_token(credentials_path: str, token_output_path: str = 'token.pickl
             flow = InstalledAppFlow.from_client_secrets_file(
                 credentials_path, SCOPES
             )
-            creds = flow.run_local_server(port=8080)
+            # Force offline access to get refresh_token
+            creds = flow.run_local_server(port=8080, access_type='offline', prompt='consent')
 
         # Save the credentials for future use
         with open(token_path, 'wb') as token_file:
