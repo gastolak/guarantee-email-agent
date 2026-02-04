@@ -7,7 +7,7 @@ echo "=========================="
 # Decode token.pickle from base64 environment variable
 if [ -n "$GMAIL_TOKEN_PICKLE_BASE64" ]; then
     echo "📦 Decoding token.pickle from environment variable..."
-    echo "$GMAIL_TOKEN_PICKLE_BASE64" | base64 -d > token.pickle
+    echo "$GMAIL_TOKEN_PICKLE_BASE64" | base64 --decode > token.pickle
     echo "✅ token.pickle decoded successfully"
 else
     echo "⚠️  GMAIL_TOKEN_PICKLE_BASE64 not set - will use GMAIL_OAUTH_TOKEN fallback"
