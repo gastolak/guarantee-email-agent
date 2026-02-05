@@ -1,6 +1,7 @@
 """Gmail OAuth token refresh utility."""
 import logging
 import pickle
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -8,6 +9,9 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
 logger = logging.getLogger(__name__)
+
+# Refresh token if it expires within this threshold
+TOKEN_REFRESH_THRESHOLD = timedelta(minutes=5)
 
 
 def refresh_gmail_token(token_pickle_path: str = "token.pickle") -> Optional[str]:
@@ -38,38 +42,68 @@ def refresh_gmail_token(token_pickle_path: str = "token.pickle") -> Optional[str
         with open(token_path, 'rb') as token_file:
             creds: Credentials = pickle.load(token_file)
 
-        # Check if credentials need refresh
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                logger.info("Refreshing expired Gmail token...")
-                creds.refresh(Request())
+        if not creds:
+            logger.error("No credentials found in pickle file")
+            return None
 
-                # Save refreshed credentials back to pickle
-                with open(token_path, 'wb') as token_file:
-                    pickle.dump(creds, token_file)
+        # Check if token needs refresh (expired or expiring soon)
+        needs_refresh = False
+        if creds.expired:
+            logger.info("Gmail token is expired")
+            needs_refresh = True
+        elif not creds.valid:
+            logger.info("Gmail token is invalid")
+            needs_refresh = True
+        elif creds.expiry:
+            # Make expiry timezone-aware if it isn't already
+            expiry = creds.expiry
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
 
+            time_until_expiry = expiry - datetime.now(timezone.utc)
+            if time_until_expiry < TOKEN_REFRESH_THRESHOLD:
                 logger.info(
-                    "Gmail token refreshed successfully",
-                    extra={"token_expires": creds.expiry.isoformat() if creds.expiry else None}
+                    f"Gmail token expires soon (in {time_until_expiry.total_seconds():.0f}s), refreshing proactively",
+                    extra={"expires_in_seconds": time_until_expiry.total_seconds()}
                 )
-            else:
-                logger.error(
-                    "Cannot refresh token - no refresh_token available",
-                    extra={"has_creds": creds is not None, "has_refresh_token": creds.refresh_token if creds else None}
-                )
+                needs_refresh = True
+
+        if needs_refresh:
+            if not creds.refresh_token:
+                logger.error("Cannot refresh token - no refresh_token available")
                 return None
-        else:
+
+            logger.info("Refreshing Gmail token...")
+            creds.refresh(Request())
+
+            # Save refreshed credentials back to pickle
+            with open(token_path, 'wb') as token_file:
+                pickle.dump(creds, token_file)
+
             logger.info(
-                "Gmail token is still valid",
+                "Gmail token refreshed successfully",
                 extra={"token_expires": creds.expiry.isoformat() if creds.expiry else None}
             )
+        else:
+            if creds.expiry:
+                expiry = creds.expiry
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                time_until_expiry = expiry - datetime.now(timezone.utc)
+                logger.info(
+                    f"Gmail token is still valid (expires in {time_until_expiry.total_seconds():.0f}s)",
+                    extra={"token_expires": creds.expiry.isoformat()}
+                )
+            else:
+                logger.info("Gmail token is still valid")
 
         return creds.token
 
     except Exception as e:
         logger.error(
             f"Failed to refresh Gmail token: {e}",
-            extra={"error": str(e), "token_path": str(token_path)}
+            extra={"error": str(e), "token_path": str(token_path)},
+            exc_info=True
         )
         return None
 
