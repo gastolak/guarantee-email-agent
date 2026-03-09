@@ -44,7 +44,12 @@ def create_email_processor(config: AgentConfig) -> EmailProcessor:
     detector = ScenarioDetector(config, main_instruction.body)
 
     # Refresh Gmail OAuth token from pickle file (if available)
-    logger.info("Refreshing Gmail OAuth token from pickle file...")
+    import os
+    token_pickle_exists = os.path.exists("token.pickle")
+    logger.info(
+        f"Refreshing Gmail OAuth token from pickle file... (token.pickle exists: {token_pickle_exists})",
+        extra={"token_pickle_exists": token_pickle_exists}
+    )
     fresh_token = get_fresh_gmail_token(
         token_pickle_path="token.pickle",
         fallback_token=config.secrets.gmail_oauth_token
@@ -52,6 +57,11 @@ def create_email_processor(config: AgentConfig) -> EmailProcessor:
 
     if not fresh_token:
         raise ValueError("No valid Gmail OAuth token available - check token.pickle or GMAIL_OAUTH_TOKEN env var")
+
+    logger.info(
+        f"Gmail token obtained successfully (length: {len(fresh_token)} chars)",
+        extra={"token_length": len(fresh_token)}
+    )
 
     # Initialize tools
     gmail_tool = GmailTool(

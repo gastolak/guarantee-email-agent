@@ -104,16 +104,28 @@ class AgentRunner:
         Tokens expire after ~1 hour, so we refresh them proactively.
         """
         try:
+            logger.debug("Checking if Gmail token needs refresh...")
             fresh_token = get_fresh_gmail_token(
                 token_pickle_path="token.pickle",
                 fallback_token=self.config.secrets.gmail_oauth_token
             )
 
             if fresh_token and fresh_token != self.gmail_tool.oauth_token:
-                logger.info("Updating Gmail tool with refreshed token")
+                logger.info(
+                    "Updating Gmail tool with refreshed token",
+                    extra={
+                        "old_token_preview": self.gmail_tool.oauth_token[:20] + "..." if self.gmail_tool.oauth_token else None,
+                        "new_token_preview": fresh_token[:20] + "..."
+                    }
+                )
                 self.gmail_tool.oauth_token = fresh_token
+                # Update the httpx client's Authorization header with the new token
+                self.gmail_tool.client.headers["Authorization"] = f"Bearer {fresh_token}"
+                logger.info("Gmail httpx client headers updated with new token")
             elif not fresh_token:
                 logger.warning("Token refresh returned None - using existing token")
+            else:
+                logger.debug("Token unchanged, no update needed")
         except Exception as e:
             logger.error(f"Error refreshing Gmail token: {e}", exc_info=True)
 

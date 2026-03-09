@@ -97,12 +97,12 @@ available_functions:
     </step>
 
     <step n="4" title="Check VIP Warranty Status">
-      <check if="czas_naprawy is a number AND czas_naprawy &lt; 24">
+      <check if="czas_naprawy is a number AND czas_naprawy &lt;= 24">
         <action>VIP WARRANTY DETECTED - requires admin alert</action>
         <output>NEXT_STEP: alert-admin-vip</output>
         <log>VIP warranty detected (czas_naprawy: {czas_naprawy}h), alerting admin</log>
       </check>
-      <check if="czas_naprawy is null OR czas_naprawy >= 24">
+      <check if="czas_naprawy is null OR czas_naprawy > 24">
         <action>Normal warranty - no admin alert needed</action>
         <output>NEXT_STEP: send-confirmation</output>
       </check>
@@ -116,7 +116,7 @@ available_functions:
     <constraint>Call check_agent_disabled ONLY if ticket_id is negative</constraint>
     <constraint>If agent disabled, output NEXT_STEP: DONE immediately</constraint>
     <constraint>Check czas_naprawy value AFTER agent disabled check</constraint>
-    <constraint>If czas_naprawy &lt; 24, route to alert-admin-vip</constraint>
+    <constraint>If czas_naprawy &lt;= 24, route to alert-admin-vip</constraint>
     <constraint>Otherwise, route to send-confirmation</constraint>
   </constraints>
 
@@ -133,13 +133,13 @@ available_functions:
       <format>
         NEXT_STEP: alert-admin-vip
       </format>
-      <when>czas_naprawy &lt; 24 (VIP warranty requiring admin alert)</when>
+      <when>czas_naprawy &lt;= 24 (VIP warranty requiring admin alert)</when>
     </option>
     <option name="normal_flow">
       <format>
         NEXT_STEP: send-confirmation
       </format>
-      <when>Normal warranty (czas_naprawy >= 24 or null) and agent NOT disabled</when>
+      <when>Normal warranty (czas_naprawy > 24 or null) and agent NOT disabled</when>
     </option>
   </output_format>
 
@@ -147,7 +147,7 @@ available_functions:
     <example name="VIP Warranty - New Ticket">
       <input>ticket_id: "TKT-5001" (positive), czas_naprawy: 12</input>
       <action>Skip check_agent_disabled (new ticket)</action>
-      <action>Check czas_naprawy: 12 &lt; 24 → VIP</action>
+      <action>Check czas_naprawy: 12 &lt;= 24 → VIP</action>
       <output>NEXT_STEP: alert-admin-vip</output>
     </example>
     <example name="Normal Warranty - New Ticket">
